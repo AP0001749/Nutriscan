@@ -49,7 +49,7 @@ NutriScan is an AI-powered food analysis application that uses computer vision a
 ### Prerequisites
 - Node.js 18+ installed
 - npm or yarn package manager
-- Google AI Studio account for Gemini API
+ - Google Gemini Flash (recommended)
 - Nutritionix API account for nutrition data
 
 ### Installation
@@ -68,7 +68,7 @@ NutriScan is an AI-powered food analysis application that uses computer vision a
 3. **Set up environment variables**
    Create a `.env.local` file by copying `.env.example` and add your API keys.
    ```
-   GOOGLE_API_KEY=your_gemini_api_key
+   GEMINI_API_KEY=your_gemini_api_key
    NUTRITIONIX_API_KEY=your_nutritionix_api_key
    NUTRITIONIX_APP_ID=your_nutritionix_app_id
    ```
@@ -143,7 +143,6 @@ nutriscan/
 │   │   └── ...         # Feature components
 │   ├── lib/            # Utility functions
 │   │   ├── api.ts      # API client functions
-│   │   ├── demo-data.ts # Mock data for demo mode
 │   │   └── utils.ts    # Utility functions
 │   └── types/          # TypeScript type definitions
 ```
@@ -159,7 +158,7 @@ nutriscan/
 
 For full functionality, this application requires the following API keys:
 
-1. **Gemini AI API** - For smart food analysis and health insights
+1. **Anthropic Claude (Haiku 3)** - For smart food analysis and health insights
 2. **Nutritionix API** - For detailed nutrition data
 3. **USDA FoodData Central API** - For additional nutrition information
 
@@ -178,6 +177,30 @@ We've made it easy to set up your API keys:
    ```
 
 The application includes a demo mode that activates automatically if API keys are not found, but for the best experience, we recommend configuring all APIs.
+
+### Using Anthropic (Claude Haiku 3) Free Tier
+
+NutriScan is configured to use Anthropic's Claude models by default. To use the free tier / Haiku 3 model set the following environment variable in your `.env.local` file:
+
+```
+ANTHROPIC_API_KEY=your_anthropic_api_key
+# optional, defaults to claude-haiku-3
+ANTHROPIC_MODEL=claude-haiku-3
+```
+
+Notes:
+- The app uses a minimal fetch-based client so no extra SDK is required. The `ANTHROPIC_MODEL` variable lets you change the model if you have access to other Anthropic models.
+- Confirm your Anthropic account limits — "free tier" setups can still have rate or usage constraints depending on the account.
+### Using Google Gemini Flash
+
+NutriScan is configured to use Google Gemini Flash by default. To use Gemini Flash set the following environment variables in your `.env.local` file:
+
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-flash
+GEMINI_API_URL=optional_custom_endpoint
+
+- The app uses a minimal fetch-based client so no extra SDK is required. `GEMINI_MODEL` lets you change the model if you have access to other Gemini variants.
+
 
 ---
 

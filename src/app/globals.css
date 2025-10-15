@@ -57,10 +57,24 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Smooth color transitions and improved text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 200ms ease, color 200ms ease;
   }
 }
 
 /* Gradient text utility, enhanced for the new theme */
 .text-gradient {
   @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+}
+
+/* Small, reusable container utility (keeps consistent horizontal padding) */
+@layer utilities {
+  .container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+  }
+  .btn-interactive {
+    @apply transform transition duration-200 ease-in-out;
+  }
 }

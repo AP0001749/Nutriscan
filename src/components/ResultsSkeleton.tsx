@@ -1,119 +1,69 @@
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Utensils, Activity, Star, ShoppingCart } from 'lucide-react';
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Gauge, ListChecks } from 'lucide-react';
 
 export default function ResultsSkeleton() {
   return (
-    <div className="space-y-6">
-      {/* Food Detection Skeleton */}
-      <Card className="border-2 border-gray-200 shadow-lg">
-        <CardHeader className="bg-gray-100 border-b border-gray-200">
-          <CardTitle className="flex items-center">
-            <Utensils className="mr-3 h-7 w-7 text-gray-400" />
-            <div>
-              <Skeleton width={300} height={24} />
-              <Skeleton width={200} height={16} style={{ marginTop: '8px' }} />
+    <div className="space-y-6 animate-pulse">
+      <Card>
+        <CardHeader className="p-6">
+          <div className="flex items-center gap-6">
+            <div className="w-36 h-36 rounded-full bg-muted/20 flex items-center justify-center">
+              <Skeleton circle={true} height={80} width={80} />
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <ul className="space-y-3">
-            <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 shadow-sm border">
-              <div className="flex items-center">
-                <Skeleton circle={true} height={24} width={24} className="mr-3" />
-                <Skeleton width={150} height={20} />
+            <div className="flex-1">
+              <Skeleton width={240} height={28} />
+              <Skeleton width={380} height={16} className="mt-3" />
+            </div>
+            <div className="w-48">
+              <Skeleton width={140} height={32} />
+              <div className="mt-3 flex gap-2">
+                <Skeleton width={80} height={32} />
+                <Skeleton width={80} height={32} />
               </div>
-              <Skeleton width={100} height={20} />
-            </li>
-            <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 shadow-sm border">
-              <div className="flex items-center">
-                <Skeleton circle={true} height={24} width={24} className="mr-3" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <div>
+            <h4 className="text-sm text-muted-foreground mb-3 flex items-center"><ListChecks className="h-4 w-4 mr-2"/>Detected Items</h4>
+            <div className="flex gap-2">
+              <Skeleton width={100} height={28} />
+              <Skeleton width={80} height={28} />
+              <Skeleton width={120} height={28} />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm text-muted-foreground mb-3 flex items-center"><Gauge className="h-4 w-4 mr-2"/>Macro Distribution</h4>
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+              <div className="h-3 bg-muted/40" style={{ width: '60%' }} />
+            </div>
+            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+              <Skeleton width={80} height={12} />
+              <Skeleton width={80} height={12} />
+              <Skeleton width={80} height={12} />
+            </div>
+          </div>
+
+          <div className="border-t pt-6">
+            <div className="flex gap-6">
+              <div className="w-1/2">
+                <Skeleton width={160} height={20} />
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <Skeleton height={80} />
+                  <Skeleton height={80} />
+                </div>
+              </div>
+              <div className="w-1/2">
                 <Skeleton width={120} height={20} />
+                <div className="mt-3 space-y-3">
+                  <Skeleton height={20} />
+                  <Skeleton height={20} />
+                  <Skeleton height={20} />
+                </div>
               </div>
-              <Skeleton width={90} height={20} />
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* AI Analysis Skeleton */}
-      <Card className="border-2 border-gray-200 shadow-lg">
-        <CardHeader className="bg-gray-100 border-b border-gray-200">
-          <CardTitle className="flex items-center">
-            <Activity className="mr-3 h-7 w-7 text-gray-400" />
-            <div>
-              <Skeleton width={350} height={24} />
-              <Skeleton width={250} height={16} style={{ marginTop: '8px' }} />
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="flex justify-between items-center p-4 rounded-lg bg-gray-50 shadow-md">
-            <Skeleton width={180} height={24} />
-            <Skeleton width={100} height={32} />
-          </div>
-          <div>
-            <Skeleton width={200} height={20} className="mb-2" />
-            <Skeleton count={3} height={16} />
-          </div>
-          <div>
-            <Skeleton width={220} height={20} className="mb-2" />
-            <Skeleton count={2} height={16} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Nutrition Breakdown Skeleton */}
-      <Card className="border-2 border-gray-200 shadow-lg">
-        <CardHeader className="bg-gray-100 border-b border-gray-200">
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Star className="mr-3 h-7 w-7 text-gray-400" />
-              <div>
-                <Skeleton width={320} height={24} />
-                <Skeleton width={220} height={16} style={{ marginTop: '8px' }} />
-              </div>
-            </div>
-            <Skeleton width={120} height={32} />
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-3 p-4 bg-gray-50 rounded-lg shadow-md">
-            <Skeleton width={150} height={24} className="mb-2" />
-            <Skeleton count={4} height={20} />
-          </div>
-          <div className="space-y-3 p-4 bg-gray-50 rounded-lg shadow-md">
-            <Skeleton width={100} height={24} className="mb-2" />
-            <Skeleton count={3} height={20} />
-          </div>
-          <div className="space-y-3 p-4 bg-gray-50 rounded-lg shadow-md">
-            <Skeleton width={100} height={24} className="mb-2" />
-            <Skeleton count={2} height={20} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Price Comparison Skeleton */}
-      <Card className="border-2 border-gray-200 shadow-lg">
-        <CardHeader className="bg-gray-100 border-b border-gray-200">
-          <CardTitle className="flex items-center">
-            <ShoppingCart className="mr-3 h-7 w-7 text-gray-400" />
-            <div>
-              <Skeleton width={250} height={24} />
-              <Skeleton width={180} height={16} style={{ marginTop: '8px' }} />
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50 shadow-sm border">
-              <Skeleton width={100} height={20} />
-              <Skeleton width={80} height={20} />
-            </div>
-            <div className="flex justify-between items-center p-3 rounded-lg bg-gray-50 shadow-sm border">
-              <Skeleton width={120} height={20} />
-              <Skeleton width={70} height={20} />
             </div>
           </div>
         </CardContent>

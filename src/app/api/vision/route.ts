@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { vision } from '@/lib/vision-client';
-import { mockFoodRecognition } from '@/lib/demo-data';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,13 +9,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
-    // If no Vision client is available, use mock data
+    // If no Vision client is available, fail — no mock data allowed.
     if (!vision.client) {
-      console.log('Using mock data for AI Vision');
-      return NextResponse.json({ 
-        labels: mockFoodRecognition,
-        success: true 
-      });
+      console.error('Vision client is not configured on the server.');
+      return NextResponse.json({ error: 'Vision service unavailable' }, { status: 502 });
     }
 
     // Convert base64 to buffer

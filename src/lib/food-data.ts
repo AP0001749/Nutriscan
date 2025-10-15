@@ -1,8 +1,7 @@
 // src/lib/food-data.ts
-// This is the Sovereign Database, acting as the ground truth for food composition.
-
 import { FoodItem } from './types';
 
+// The Sovereign Database: The single source of truth for food composition.
 export const foodDatabase: FoodItem[] = [
   {
     name: 'Sushi',

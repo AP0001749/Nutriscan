@@ -14,6 +14,8 @@ const isProtectedRoute = createRouteMatcher([
 console.log('Clerk Environment Variables:', {
   CLERK_FRONTEND_API: process.env.CLERK_FRONTEND_API,
   CLERK_API_KEY: process.env.CLERK_API_KEY,
+  NEXT_PUBLIC_CLERK_FRONTEND_API: process.env.NEXT_PUBLIC_CLERK_FRONTEND_API,
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
 });
 
 // Suppress Clerk development keys warning in development mode

@@ -17,7 +17,7 @@ export default function Home() {
             <div className="flex flex-col items-center space-y-6">
               <Badge variant="outline" className="py-2 px-4 rounded-full text-sm border-primary/30 bg-primary/10 text-primary animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <Sparkles className="w-4 h-4 mr-2" />
-                Powered by Gemini 1.5 Pro Vision
+                Powered by Gemini Flash
               </Badge>
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-gradient animate-in fade-in slide-in-from-bottom-6 duration-700">
                 Sovereign Food Intelligence

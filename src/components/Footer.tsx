@@ -4,7 +4,7 @@ import { ScanLine, Github, Twitter, Mail } from 'lucide-react'
 export default function Footer() {
   return (
     <footer className="bg-background/80 backdrop-blur-lg border-t border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="container py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
@@ -20,7 +20,7 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-muted-foreground mb-6 max-w-md leading-relaxed">
-              An advanced AI-powered food analysis tool designed to help you make smarter, healthier choices with unparalleled accuracy.
+              An AI-powered food analysis tool to help you make smarter, healthier choices—fast.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="bg-muted p-3 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors shadow-sm">
@@ -39,10 +39,10 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold mb-4 text-foreground">Quick Links</h3>
             <ul className="space-y-3">
-              <li><Link href="/" className="text-muted-foreground hover:text-primary transition-colors">Home</Link></li>
-              <li><Link href="/scan" className="text-muted-foreground hover:text-primary transition-colors">Scan Food</Link></li>
-              <li><Link href="/blog" className="text-muted-foreground hover:text-primary transition-colors">Blog</Link></li>
-              <li><Link href="/about" className="text-muted-foreground hover:text-primary transition-colors">About Us</Link></li>
+              <li><Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">Home</Link></li>
+              <li><Link href="/scan" className="text-muted-foreground hover:text-foreground transition-colors">Scan Food</Link></li>
+              <li><Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors">Blog</Link></li>
+              <li><Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">About Us</Link></li>
             </ul>
           </div>
 
