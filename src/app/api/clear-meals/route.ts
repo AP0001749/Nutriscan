@@ -1,16 +1,16 @@
 // src/app/api/clear-meals/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { deleteMealLogsByDate } from '@/lib/database'
-import { auth } from '@clerk/nextjs/server'
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(req: NextRequest) {
   try {
-    // CORRECTIVE ACTION: Added 'await' to correctly resolve the auth promise.
-    const { userId } = await auth();
-
-    if (!userId) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.id;
     
     const { date } = await req.json();
 

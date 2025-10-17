@@ -8,9 +8,10 @@ export async function GET() {
     ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? 'not-set',
     GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
     GEMINI_MODEL: process.env.GEMINI_MODEL ?? 'not-set',
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-    NEXT_PUBLIC_CLERK_FRONTEND_API: !!process.env.NEXT_PUBLIC_CLERK_FRONTEND_API,
-    CLERK_API_KEY: !!process.env.CLERK_API_KEY,
+    NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? 'not-set',
+    GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
+    GITHUB_CLIENT_ID: !!process.env.GITHUB_CLIENT_ID,
     DATABASE_URL: !!process.env.DATABASE_URL,
   };
 

@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, Home, Camera, Info, BarChart3, ScanLine } from 'lucide-react'
+import { BookOpen, Home, Camera, Info, BarChart3, ScanLine, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { UserButton, useAuth } from '@clerk/nextjs'
-import { SignInButton } from '@clerk/nextjs'
+import { useSession, signIn, signOut } from 'next-auth/react'
+import { Button } from '@/components/ui/button'
 
 const navigation = [
   { name: 'Home', href: '/', icon: Home },
@@ -17,7 +17,8 @@ const navigation = [
 
 export default function Navigation() {
   const pathname = usePathname()
-  const { isSignedIn } = useAuth();
+  const { data: session } = useSession();
+  const isSignedIn = !!session;
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-lg">
@@ -51,12 +52,31 @@ export default function Navigation() {
             )
           })}
            <div className="pl-4 flex items-center space-x-2">
-             {!isSignedIn && (
-               <SignInButton>
-                 <button className="btn-interactive px-3 py-2 rounded-md text-sm bg-muted/50">Sign in</button>
-               </SignInButton>
+             {!isSignedIn ? (
+               <Button
+                 onClick={() => signIn()}
+                 variant="outline"
+                 size="sm"
+                 className="btn-interactive"
+               >
+                 Sign in
+               </Button>
+             ) : (
+               <div className="flex items-center space-x-2">
+                 <span className="text-sm text-muted-foreground hidden sm:inline-block">
+                   {session?.user?.name || session?.user?.email}
+                 </span>
+                 <Button
+                   onClick={() => signOut()}
+                   variant="ghost"
+                   size="sm"
+                   className="btn-interactive"
+                 >
+                   <LogOut className="h-4 w-4" />
+                   <span className="ml-2 hidden sm:inline-block">Sign out</span>
+                 </Button>
+               </div>
              )}
-             <UserButton afterSignOutUrl="/" />
            </div>
         </div>
       </div>

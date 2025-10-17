@@ -66,12 +66,28 @@ NutriScan is an AI-powered food analysis application that uses computer vision a
    ```
 
 3. **Set up environment variables**
-   Create a `.env.local` file by copying `.env.example` and add your API keys.
-   ```
+   Create a `.env.local` file and add your API keys:
+   ```bash
+   # AI & Vision APIs
    GEMINI_API_KEY=your_gemini_api_key
-   NUTRITIONIX_API_KEY=your_nutritionix_api_key
-   NUTRITIONIX_APP_ID=your_nutritionix_app_id
+   CLARIFAI_API_KEY=your_clarifai_api_key
+   USDA_API_KEY=your_usda_api_key
+   
+   # NextAuth Configuration
+   NEXTAUTH_SECRET=your_random_secret_string
+   NEXTAUTH_URL=http://localhost:3000
+   
+   # OAuth Providers (Optional)
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   GITHUB_CLIENT_ID=your_github_client_id
+   GITHUB_CLIENT_SECRET=your_github_client_secret
+   
+   # Database
+   DATABASE_URL=your_database_connection_string
    ```
+   
+   **Note**: For development, the credentials provider allows any email/password. For production, configure OAuth providers or implement proper user authentication.
 
 4. **Initialize the database**
    The first time you run the app, navigate to `/api/init-db` in your browser to create the necessary database tables.
@@ -154,22 +170,48 @@ nutriscan/
 - Improved responsive design for better mobile experience
 - Enhanced error handling for API calls
 
+## Authentication
+
+NutriScan uses **NextAuth.js** for authentication with support for multiple providers:
+
+### Supported Authentication Methods
+1. **Google OAuth** - Sign in with Google account
+2. **GitHub OAuth** - Sign in with GitHub account  
+3. **Credentials** - Email/password authentication (development mode accepts any credentials)
+
+### Setting Up OAuth Providers
+
+#### Google OAuth
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+6. Copy Client ID and Client Secret to your `.env.local`
+
+#### GitHub OAuth
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Create a new OAuth App
+3. Set callback URL: `http://localhost:3000/api/auth/callback/github`
+4. Copy Client ID and Client Secret to your `.env.local`
+
+### Generating NEXTAUTH_SECRET
+```bash
+openssl rand -base64 32
+```
+
 ## API Keys Configuration
 
 For full functionality, this application requires the following API keys:
 
-1. **Anthropic Claude (Haiku 3)** - For smart food analysis and health insights
-2. **Nutritionix API** - For detailed nutrition data
-3. **USDA FoodData Central API** - For additional nutrition information
+1. **Google Gemini** - For AI-powered food analysis and health insights
+2. **Clarifai API** - For advanced food recognition with 98% accuracy
+3. **USDA FoodData Central API** - For comprehensive nutrition information
 
 We've made it easy to set up your API keys:
 
-1. First, configure your API keys in `.env.local` file (see [API-KEYS-SETUP.md](API-KEYS-SETUP.md) for detailed instructions)
-
-2. Verify your API keys configuration:
-   ```bash
-   npm run verify-api-keys
-   ```
+1. First, configure your API keys in `.env.local` file
+2. Verify your configuration by visiting `/api/env-check`
 
 3. Start the application with API keys check:
    ```bash

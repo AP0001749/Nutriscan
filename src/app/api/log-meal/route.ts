@@ -1,14 +1,16 @@
 // src/app/api/log-meal/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { saveMealLog } from '@/lib/database';
-import { auth } from '@clerk/nextjs/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.id;
 
     // *** CRITICAL FIX: Destructure 'mealName' from the incoming request body ***
     const { mealType, mealName, foods } = await request.json();
