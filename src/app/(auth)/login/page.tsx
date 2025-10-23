@@ -4,7 +4,7 @@ import { signIn, getProviders, ClientSafeProvider } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Chrome, Github, ScanLine, Mail } from 'lucide-react';
+import { Chrome, ScanLine, Mail } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -31,9 +31,7 @@ export default function LoginPage() {
     signIn('google', { callbackUrl: '/scan' });
   };
 
-  const handleGitHubSignIn = () => {
-    signIn('github', { callbackUrl: '/scan' });
-  };
+  // GitHub provider removed
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,17 +66,7 @@ export default function LoginPage() {
             </Button>
           ) : null}
 
-          {providers?.github ? (
-            <Button 
-              onClick={handleGitHubSignIn}
-              className="w-full"
-              size="lg"
-              variant="outline"
-            >
-              <Github className="mr-2 h-4 w-4" />
-              Sign in with GitHub
-            </Button>
-          ) : null}
+          {/* GitHub provider removed */}
 
           {!providers || (Object.keys(providers).length === 0) ? (
             <p className="text-xs text-center text-muted-foreground">
