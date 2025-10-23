@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { signIn, getProviders, ClientSafeProvider } from 'next-auth/react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chrome, Github, ScanLine, Mail } from 'lucide-react';
@@ -9,6 +9,23 @@ import { Chrome, Github, ScanLine, Mail } from 'lucide-react';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [providers, setProviders] = useState<Record<string, ClientSafeProvider> | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const p = await getProviders();
+        if (mounted) setProviders(p as Record<string, ClientSafeProvider> | null);
+      } catch {
+        // ignore - providers may not be configured in dev
+        if (mounted) setProviders(null);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleGoogleSignIn = () => {
     signIn('google', { callbackUrl: '/scan' });
@@ -40,24 +57,35 @@ export default function LoginPage() {
           <CardDescription>Sign in to access NutriScan</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button 
-            onClick={handleGoogleSignIn}
-            className="w-full"
-            size="lg"
-          >
-            <Chrome className="mr-2 h-4 w-4" />
-            Sign in with Google
-          </Button>
-          
-          <Button 
-            onClick={handleGitHubSignIn}
-            className="w-full"
-            size="lg"
-            variant="outline"
-          >
-            <Github className="mr-2 h-4 w-4" />
-            Sign in with GitHub
-          </Button>
+          {providers?.google ? (
+            <Button 
+              onClick={handleGoogleSignIn}
+              className="w-full"
+              size="lg"
+            >
+              <Chrome className="mr-2 h-4 w-4" />
+              Sign in with Google
+            </Button>
+          ) : null}
+
+          {providers?.github ? (
+            <Button 
+              onClick={handleGitHubSignIn}
+              className="w-full"
+              size="lg"
+              variant="outline"
+            >
+              <Github className="mr-2 h-4 w-4" />
+              Sign in with GitHub
+            </Button>
+          ) : null}
+
+          {!providers || (Object.keys(providers).length === 0) ? (
+            <p className="text-xs text-center text-muted-foreground">
+              OAuth providers not configured. Use email sign-in (dev mode) or set
+              up providers in your `.env.local`.
+            </p>
+          ) : null}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
