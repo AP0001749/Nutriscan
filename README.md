@@ -176,7 +176,6 @@ NutriScan uses **NextAuth.js** for authentication with support for multiple prov
 
 ### Supported Authentication Methods
 1. **Google OAuth** - Sign in with Google account
-2. **GitHub OAuth** - Sign in with GitHub account  
 3. **Credentials** - Email/password authentication (development mode accepts any credentials)
 
 ### Setting Up OAuth Providers
@@ -188,12 +187,6 @@ NutriScan uses **NextAuth.js** for authentication with support for multiple prov
 4. Create OAuth 2.0 credentials
 5. Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
 6. Copy Client ID and Client Secret to your `.env.local`
-
-#### GitHub OAuth
-1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
-2. Create a new OAuth App
-3. Set callback URL: `http://localhost:3000/api/auth/callback/github`
-4. Copy Client ID and Client Secret to your `.env.local`
 
 ### Generating NEXTAUTH_SECRET
 ```bash
