@@ -22,8 +22,6 @@ export async function GET() {
   // Server-side endpoint to verify presence of key environment variables.
   // Returns boolean presence only - never exposes actual secret values.
   const present = {
-    ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
-    ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? 'not-set',
     GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
     GEMINI_MODEL: process.env.GEMINI_MODEL ?? 'not-set',
     NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,

@@ -181,13 +181,11 @@ This application uses **PostgreSQL** via `@vercel/postgres` for serverless compa
 
 ## API Providers & Configuration
 
-NutriScan integrates with multiple AI and data providers for comprehensive food analysis. The application uses a **fallback cascade** strategy - if one provider is unavailable, it automatically tries the next.
+NutriScan uses Google Gemini for AI-powered food recognition and health analysis. The application uses a **fallback cascade** strategy with multiple vision providers for maximum reliability.
 
 ### Required API Providers
 
-At least **one** of the following AI vision providers is required:
-
-#### 1. Google Gemini (Recommended)
+#### Google Gemini (Required)
 - **Purpose**: Food recognition and health analysis
 - **Free Tier**: 60 requests/minute, completely free
 - **Cost**: Free for most use cases
@@ -197,22 +195,12 @@ At least **one** of the following AI vision providers is required:
   GEMINI_API_KEY=your_gemini_api_key
   GEMINI_MODEL=gemini-1.5-flash  # Optional, this is the default
   ```
-- **Why Recommended**: Best accuracy, generous free tier, fastest response times
+- **Features**: Best accuracy, generous free tier, fastest response times
 
-#### 2. Anthropic Claude
-- **Purpose**: Advanced food analysis and health insights
-- **Free Tier**: $5 free credit on signup
-- **Cost**: Pay-as-you-go after free credit
-- **Setup**: Get API key at [Anthropic Console](https://console.anthropic.com/)
-- **Environment Variables**:
-  ```bash
-  ANTHROPIC_API_KEY=your_anthropic_api_key
-  ANTHROPIC_MODEL=claude-3-5-sonnet-20241022  # Optional
-  ```
-- **Best For**: Detailed health analysis and dietary recommendations
+### Optional API Providers
 
-#### 3. Clarifai
-- **Purpose**: Image recognition and food classification
+#### Clarifai
+- **Purpose**: Image recognition and food classification fallback
 - **Free Tier**: 1,000 operations/month free
 - **Cost**: $1.20 per 1,000 operations after free tier
 - **Setup**: Get PAT at [Clarifai Portal](https://clarifai.com/settings/security)
@@ -221,8 +209,6 @@ At least **one** of the following AI vision providers is required:
   CLARIFAI_PAT=your_clarifai_personal_access_token
   ```
 - **Best For**: Multi-food detection in complex images
-
-### Optional API Providers
 
 #### USDA FoodData Central
 - **Purpose**: Detailed nutrition data from official USDA database
@@ -248,15 +234,14 @@ At least **one** of the following AI vision providers is required:
 ### API Cascade Strategy
 
 The application tries providers in this order:
-1. **Vision Recognition**: Gemini → Anthropic → Clarifai → HuggingFace (free) → Demo fallback
+1. **Vision Recognition**: Gemini → Clarifai → HuggingFace (free) → Demo fallback
 2. **Nutrition Data**: USDA → Nutritionix → Built-in database
-3. **Health Analysis**: Gemini → Anthropic → Basic analysis
+3. **Health Analysis**: Gemini → Basic analysis
 
 ### Cost Estimation
 
 For a typical user (30 scans/day):
 - **Gemini Only**: $0/month (stays within free tier)
-- **Anthropic Only**: ~$2-5/month after free credit
 - **Clarifai Only**: Free (under 1,000/month)
 - **USDA**: Always free
 - **Nutritionix**: Free for basic usage
@@ -270,9 +255,8 @@ GEMINI_API_KEY=your_key  # Only this is needed
 
 **For Production**:
 ```bash
-# Primary providers
+# Primary provider (required)
 GEMINI_API_KEY=your_gemini_key
-ANTHROPIC_API_KEY=your_anthropic_key
 
 # Data sources
 USDA_API_KEY=your_usda_key
@@ -303,7 +287,6 @@ nutriscan/
 │   │   └── ...         # Feature components
 │   ├── lib/            # Utility functions
 │   │   ├── gemini-client.ts      # Gemini AI integration
-│   │   ├── anthropic-client.ts   # Anthropic integration
 │   │   ├── huggingface-client.ts # HuggingFace fallback
 │   │   ├── database.ts           # Postgres operations
 │   │   └── demo-data.ts          # Fallback mock data
@@ -364,25 +347,19 @@ The application includes a demo mode that activates automatically if API keys ar
 
 NutriScan is configured to use Anthropic's Claude models by default. To use the free tier / Haiku 3 model set the following environment variable in your `.env.local` file:
 
-```
-ANTHROPIC_API_KEY=your_anthropic_api_key
-# optional, defaults to claude-haiku-3
-ANTHROPIC_MODEL=claude-haiku-3
+### Using Google Gemini Flash
+
+NutriScan uses Google Gemini Flash for AI-powered food recognition and health analysis. Set the following environment variables in your `.env.local` file:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-1.5-flash  # Optional, this is the default
 ```
 
 Notes:
-- The app uses a minimal fetch-based client so no extra SDK is required. The `ANTHROPIC_MODEL` variable lets you change the model if you have access to other Anthropic models.
-- Confirm your Anthropic account limits — "free tier" setups can still have rate or usage constraints depending on the account.
-### Using Google Gemini Flash
-
-NutriScan is configured to use Google Gemini Flash by default. To use Gemini Flash set the following environment variables in your `.env.local` file:
-
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-flash
-GEMINI_API_URL=optional_custom_endpoint
-
-- The app uses a minimal fetch-based client so no extra SDK is required. `GEMINI_MODEL` lets you change the model if you have access to other Gemini variants.
-
+- The app uses a minimal fetch-based client so no extra SDK is required
+- `GEMINI_MODEL` lets you change the model if you have access to other Gemini variants
+- Free tier provides 60 requests/minute with no cost
 
 ---
 
