@@ -115,32 +115,171 @@ NutriScan is an AI-powered food analysis application that uses computer vision a
 
 ## Deployment
 
-This application uses a local SQLite database (`dev.db`), which is not suitable for serverless deployment platforms like Vercel or Netlify.
+This application uses **PostgreSQL** via `@vercel/postgres` for serverless compatibility. The database layer is production-ready for platforms like Vercel, Netlify, and other serverless environments.
 
-### For Local Deployment or a Single Server
+### Prerequisites
+1. **PostgreSQL Database**: Set up a serverless Postgres instance:
+   - **Vercel Postgres**: [Create in Vercel Dashboard](https://vercel.com/docs/storage/vercel-postgres)
+   - **Neon**: [Sign up and create database](https://neon.tech/)
+   - **Supabase**: [Create project](https://supabase.com/)
+
+2. **Environment Variables**: Copy `.env.example` to `.env.local` and configure:
+   ```bash
+   # NextAuth
+   NEXTAUTH_SECRET=your-secret-here  # Generate with: openssl rand -base64 32
+   NEXTAUTH_URL=http://localhost:3000  # Update for production
+
+   # Database
+   POSTGRES_URL=your-postgres-connection-string
+   POSTGRES_PRISMA_URL=your-prisma-connection-string
+   POSTGRES_URL_NON_POOLING=your-non-pooling-connection-string
+
+   # OAuth (optional)
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+   # AI APIs (at least one required)
+   GEMINI_API_KEY=your-gemini-api-key
+   ANTHROPIC_API_KEY=your-anthropic-api-key
+   CLARIFAI_PAT=your-clarifai-pat
+   USDA_API_KEY=your-usda-api-key
+   ```
+
+### Deploy to Vercel
+1. **Push to GitHub**:
+   ```bash
+   git push origin master
+   ```
+
+2. **Import to Vercel**:
+   - Visit [vercel.com/new](https://vercel.com/new)
+   - Import your GitHub repository
+   - Configure environment variables in project settings
+
+3. **Set up Vercel Postgres** (recommended):
+   - Go to Storage tab in your Vercel project
+   - Create Postgres database
+   - Vercel automatically sets `POSTGRES_URL` and related vars
+
+4. **Initialize Database Schema**:
+   - After first deploy, visit: `https://your-app.vercel.app/api/init-db`
+   - Or run migration script locally pointing to production DB
+
+5. **Verify Deployment**:
+   - Check `/api/auth/providers` returns configured providers
+   - Test `/api/env-check` to verify environment variables (secure this endpoint in production!)
+
+### Local Development
 1. Build the project:
    ```bash
    npm run build
    ```
 2. Start the production server:
-    ```bash
-    npm start
-    ```
-
-### For Serverless Platforms (Vercel, Netlify, etc.)
-Before deploying to a serverless platform, you **must** migrate the database from SQLite to a serverless-compatible database like **Vercel Postgres**, **Neon**, or **Supabase**.
-
-1. **Create a new PostgreSQL database** on your chosen platform.
-2. **Update the database connection logic** in `src/lib/db.ts` to use a PostgreSQL client (e.g., `pg` or `@vercel/postgres`).
-3. **Add your database connection string** to your environment variables.
-4. **Import your GitHub repository** to Vercel (or your chosen platform).
-5. **Add environment variables** in the platform's dashboard.
-6. **Deploy**.
-   ```
-2. Start the production server:
    ```bash
    npm start
    ```
+
+## API Providers & Configuration
+
+NutriScan integrates with multiple AI and data providers for comprehensive food analysis. The application uses a **fallback cascade** strategy - if one provider is unavailable, it automatically tries the next.
+
+### Required API Providers
+
+At least **one** of the following AI vision providers is required:
+
+#### 1. Google Gemini (Recommended)
+- **Purpose**: Food recognition and health analysis
+- **Free Tier**: 60 requests/minute, completely free
+- **Cost**: Free for most use cases
+- **Setup**: Get API key at [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Environment Variables**:
+  ```bash
+  GEMINI_API_KEY=your_gemini_api_key
+  GEMINI_MODEL=gemini-1.5-flash  # Optional, this is the default
+  ```
+- **Why Recommended**: Best accuracy, generous free tier, fastest response times
+
+#### 2. Anthropic Claude
+- **Purpose**: Advanced food analysis and health insights
+- **Free Tier**: $5 free credit on signup
+- **Cost**: Pay-as-you-go after free credit
+- **Setup**: Get API key at [Anthropic Console](https://console.anthropic.com/)
+- **Environment Variables**:
+  ```bash
+  ANTHROPIC_API_KEY=your_anthropic_api_key
+  ANTHROPIC_MODEL=claude-3-5-sonnet-20241022  # Optional
+  ```
+- **Best For**: Detailed health analysis and dietary recommendations
+
+#### 3. Clarifai
+- **Purpose**: Image recognition and food classification
+- **Free Tier**: 1,000 operations/month free
+- **Cost**: $1.20 per 1,000 operations after free tier
+- **Setup**: Get PAT at [Clarifai Portal](https://clarifai.com/settings/security)
+- **Environment Variables**:
+  ```bash
+  CLARIFAI_PAT=your_clarifai_personal_access_token
+  ```
+- **Best For**: Multi-food detection in complex images
+
+### Optional API Providers
+
+#### USDA FoodData Central
+- **Purpose**: Detailed nutrition data from official USDA database
+- **Free Tier**: Completely free, no rate limits
+- **Setup**: Get API key at [USDA FoodData Central](https://fdc.nal.usda.gov/api-key-signup.html)
+- **Environment Variables**:
+  ```bash
+  USDA_API_KEY=your_usda_api_key
+  ```
+- **Note**: Falls back to built-in nutrition database if not configured
+
+#### Nutritionix
+- **Purpose**: Additional nutrition data and fallback provider
+- **Free Tier**: Limited free tier available
+- **Setup**: Sign up at [Nutritionix API](https://www.nutritionix.com/business/api)
+- **Environment Variables**:
+  ```bash
+  NUTRITIONIX_APP_ID=your_app_id
+  NUTRITIONIX_API_KEY=your_api_key
+  ```
+- **Note**: Optional - used as fallback when primary nutrition sources fail
+
+### API Cascade Strategy
+
+The application tries providers in this order:
+1. **Vision Recognition**: Gemini → Anthropic → Clarifai → HuggingFace (free) → Demo fallback
+2. **Nutrition Data**: USDA → Nutritionix → Built-in database
+3. **Health Analysis**: Gemini → Anthropic → Basic analysis
+
+### Cost Estimation
+
+For a typical user (30 scans/day):
+- **Gemini Only**: $0/month (stays within free tier)
+- **Anthropic Only**: ~$2-5/month after free credit
+- **Clarifai Only**: Free (under 1,000/month)
+- **USDA**: Always free
+- **Nutritionix**: Free for basic usage
+
+### Recommended Setup
+
+**For Development**:
+```bash
+GEMINI_API_KEY=your_key  # Only this is needed
+```
+
+**For Production**:
+```bash
+# Primary providers
+GEMINI_API_KEY=your_gemini_key
+ANTHROPIC_API_KEY=your_anthropic_key
+
+# Data sources
+USDA_API_KEY=your_usda_key
+
+# Fallback
+CLARIFAI_PAT=your_clarifai_pat
+```
 
 ## Project Structure
 
@@ -150,6 +289,11 @@ nutriscan/
 ├── src/
 │   ├── app/            # Next.js 15 app directory
 │   │   ├── api/        # API route handlers
+│   │   │   ├── scan-food/          # Main food scanning endpoint
+│   │   │   ├── nutritionix-vision/ # Nutritionix fallback provider
+│   │   │   ├── prices/             # Price comparison API
+│   │   │   ├── log-meal/           # Meal logging
+│   │   │   └── env-check/          # Environment validation (dev only)
 │   │   ├── blog/       # Blog pages
 │   │   ├── scan/       # Scan page
 │   │   ├── about/      # About page
@@ -158,8 +302,11 @@ nutriscan/
 │   │   ├── ui/         # UI components (buttons, cards, etc.)
 │   │   └── ...         # Feature components
 │   ├── lib/            # Utility functions
-│   │   ├── api.ts      # API client functions
-│   │   └── utils.ts    # Utility functions
+│   │   ├── gemini-client.ts      # Gemini AI integration
+│   │   ├── anthropic-client.ts   # Anthropic integration
+│   │   ├── huggingface-client.ts # HuggingFace fallback
+│   │   ├── database.ts           # Postgres operations
+│   │   └── demo-data.ts          # Fallback mock data
 │   └── types/          # TypeScript type definitions
 ```
 

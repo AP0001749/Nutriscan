@@ -441,7 +441,15 @@ export const mockNutritionData = {
   }
 };
 
-export const mockPriceData = {
+export type PriceStore = { name: string; price: number; url?: string };
+export type PriceDataEntry = {
+  foodName: string;
+  stores?: PriceStore[];
+  cheapestPrice?: number;
+  averagePrice?: number;
+};
+
+export const mockPriceData: Record<string, PriceDataEntry> = {
   'Apple': {
     foodName: 'Apple',
     stores: [
