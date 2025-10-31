@@ -285,8 +285,9 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
             {aiAnalysis ? (
               <HealthScoreRing score={aiAnalysis.healthScore} />
             ) : (
-              <div className="w-36 h-36 flex items-center justify-center">
-                <Badge variant="outline" className="px-3 py-2">AI Analysis Unavailable</Badge>
+              <div className="w-36 h-36 flex flex-col items-center justify-center bg-muted/30 rounded-full border-2 border-dashed border-muted-foreground/30">
+                <BrainCircuit className="w-12 h-12 text-muted-foreground/50 mb-2" />
+                <Badge variant="outline" className="px-2 py-1 text-xs">No AI Analysis</Badge>
               </div>
             )}
             <div className="flex-1 text-center sm:text-left">

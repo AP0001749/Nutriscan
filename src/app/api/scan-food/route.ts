@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
     let finalFoodItems: string[] = [];
     let identifiedDishName: string = '';
     let source: string = '';
+    const warnings: string[] = [];
 
     // --- Deterministic Fusion Engine ---
     console.log('Fusion Engine: Step 1 - High-Confidence Concept Generation...');
@@ -114,9 +115,9 @@ export async function POST(request: NextRequest) {
         // Gracefully return a client error with clear message, rather than throwing
         return NextResponse.json({ error: 'No food items detected in image', details: 'Vision model returned no detectable concepts.' }, { status: 422 });
     }
-    // EXTREME ACCURACY MODE: Require 98% confidence minimum
+    // HIGH ACCURACY MODE: Require 85% confidence minimum for reliable detection
     const highConfidenceConcepts = aiConcepts
-        .filter(c => c.confidence >= 0.98)
+        .filter(c => c.confidence >= 0.85)
         .map(c => c.name.toLowerCase());
 
     if (highConfidenceConcepts.length > 0) {
@@ -140,27 +141,27 @@ export async function POST(request: NextRequest) {
             source = "Sovereign Database";
             console.log(`Tier 1 Success. Matched: "${identifiedDishName}" with score ${bestMatch.score}.`);
         } else {
-            // EXTREME MODE: Reject if no database match at 98%+ confidence
-            console.log('Tier 1 match not found with 98%+ confidence. Rejecting scan.');
-            return NextResponse.json({ 
-                error: 'Unable to identify food with high confidence', 
-                details: `Top concept "${aiConcepts[0].name}" at ${(aiConcepts[0].confidence * 100).toFixed(1)}% confidence does not meet 98% threshold. Please retake photo with better lighting and angle.` 
-            }, { status: 422 });
+            // Fallback to top concept if no database match
+            console.log('Tier 1 match not found. Using top AI concept as fallback.');
+            finalFoodItems = [aiConcepts[0].name];
+            identifiedDishName = aiConcepts[0].name;
+            source = "AI Vision (Clarifai)";
+            console.log(`Fallback: Using "${identifiedDishName}" at ${(aiConcepts[0].confidence * 100).toFixed(1)}% confidence.`);
         }
     } else {
-        // EXTREME MODE: Reject if no 98%+ concepts found
-        console.log('No 98%+ confidence concepts. Rejecting scan.');
+        // Use top concepts even if below 85% confidence (but warn user)
+        console.log('No high confidence concepts found. Using best available.');
         const topConcept = aiConcepts[0];
-        return NextResponse.json({ 
-            error: 'Food identification confidence too low', 
-            details: `Highest confidence: "${topConcept.name}" at ${(topConcept.confidence * 100).toFixed(1)}%. Requires 98%+. Retake photo with clearer view of food.` 
-        }, { status: 422 });
+        finalFoodItems = [topConcept.name];
+        identifiedDishName = topConcept.name;
+        source = "AI Vision (Low Confidence)";
+        warnings.push(`Food identification confidence is ${(topConcept.confidence * 100).toFixed(1)}%. Results may be less accurate.`);
+        console.log(`Low confidence mode: Using "${identifiedDishName}" at ${(topConcept.confidence * 100).toFixed(1)}%.`);
     }
     
     const nutritionPromises = finalFoodItems.map(name => getNutritionData(name));
     const nutritionResults = await Promise.all(nutritionPromises);
     const nutritionData: NutritionInfo[] = [];
-    const warnings: string[] = [];
     nutritionResults.forEach((res, idx) => {
       if (res) nutritionData.push(res);
       else warnings.push(`Nutrition lookup failed for: ${finalFoodItems[idx]}`);
@@ -209,14 +210,34 @@ export async function POST(request: NextRequest) {
                   `Example: {"description":"High in saturated fat (12g) and sodium (680mg); moderate protein (15g).","healthScore":45,"suggestions":["Limit to half serving","Choose low-sodium alternative"]}`,
                   ``,
                   `Base healthScore strictly on the provided USDA data. Keep suggestions actionable and under 8 words each.`
-                ].join(' ');                // Try primary model
+                ].join(' ');                
+                
+                // Enhanced AI analysis with better error handling
                 let parsed: unknown | null = null;
                 let raw: unknown = null;
+                
+                console.log('Attempting AI analysis with Gemini...');
                 try {
-                    raw = await callGeminiWithRetry(analysisPrompt, { maxTokens: 700, temperature: 0.2, retries: 2, responseMimeType: 'application/json' });
+                    raw = await callGeminiWithRetry(analysisPrompt, { 
+                        maxTokens: 800, 
+                        temperature: 0.3, 
+                        retries: 3, // Increased retries
+                        responseMimeType: 'application/json' 
+                    });
+                    console.log('✅ Gemini API call successful');
                 } catch (gemErr) {
-                    console.error('Gemini analysis call failed:', gemErr);
-                    warnings.push('AI analysis provider unavailable. Showing nutrition facts only.');
+                    console.error('❌ Gemini analysis call failed after retries:', gemErr);
+                    // Provide helpful error context
+                    const errorMsg = gemErr instanceof Error ? gemErr.message : String(gemErr);
+                    if (errorMsg.includes('API key')) {
+                        warnings.push('AI analysis unavailable: API key issue. Contact administrator.');
+                    } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+                        warnings.push('AI analysis unavailable: Model not accessible. Using nutrition data only.');
+                    } else if (errorMsg.includes('quota') || errorMsg.includes('rate limit')) {
+                        warnings.push('AI analysis temporarily unavailable: Rate limit reached. Showing nutrition facts.');
+                    } else {
+                        warnings.push('AI analysis temporarily unavailable. Showing nutrition facts only.');
+                    }
                     aiAnalysis = null;
                 }
 

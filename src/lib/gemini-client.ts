@@ -17,23 +17,26 @@ export async function callGeminiWithRetry(prompt: string, opts: GeminiOptions = 
   if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
 
   // Normalize model name: accept either raw id like "gemini-2.5-flash" or full path.
-  const rawModel = (process.env.GEMINI_MODEL || 'gemini-2.5-flash').replace(/^models\//, '');
+  const rawModel = (process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp').replace(/^models\//, '');
   const aliasMap: Record<string, string> = {
     // Map very old shorthand to a modern default
-    'gemini-flash': 'gemini-2.5-flash',
+    'gemini-flash': 'gemini-2.0-flash-exp',
     // Keep explicit 2.x names as-is
-    'gemini-2.0-flash': 'gemini-2.0-flash',
-    'gemini-2.5-flash': 'gemini-2.5-flash',
-    'gemini-2.0-pro': 'gemini-2.0-pro',
-    'gemini-2.5-pro': 'gemini-2.5-pro',
+    'gemini-2.0-flash': 'gemini-2.0-flash-exp',
+    'gemini-2.0-flash-exp': 'gemini-2.0-flash-exp',
+    'gemini-2.5-flash': 'gemini-2.0-flash-exp',
+    'gemini-2.0-pro': 'gemini-2.0-flash-exp',
+    'gemini-2.5-pro': 'gemini-2.0-flash-exp',
+    // Add stable 1.5 models as fallbacks
+    'gemini-1.5-flash': 'gemini-1.5-flash',
+    'gemini-1.5-pro': 'gemini-1.5-pro',
   };
   // Allow comma-separated list in GEMINI_MODEL (e.g., "gemini-1.5-flash,gemini-1.5-pro")
   const configuredModels = rawModel.split(',').map(s => s.trim()).filter(Boolean).map(m => aliasMap[m] || m);
   const model = configuredModels[0] || aliasMap[rawModel] || rawModel;
-  // Reasonable defaults if no explicit list provided
+  // Enhanced fallback chain with stable models
   const defaultFallbackModels = [
-    // Only 2.x families by default
-    'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-2.0-pro'
+    'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'
   ];
 
   const retries = opts.retries ?? 2;
