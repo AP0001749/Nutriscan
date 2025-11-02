@@ -13,11 +13,16 @@ function buildEndpoint(version: 'v1beta' | 'v1', model: string) {
 }
 
 export async function callGeminiWithRetry(prompt: string, opts: GeminiOptions = {}) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
+  // Prefer an explicit server-side key. Fall back to legacy env or a public key
+  // if present. For security, set `GEMINI_API_KEY_SERVER` on your server and
+  // keep any public key in `NEXT_PUBLIC_GEMINI_API_KEY` (only usable from the
+  // browser).
+  const apiKey = process.env.GEMINI_API_KEY_SERVER || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) throw new Error('Missing GEMINI API key. Set GEMINI_API_KEY_SERVER for server-side usage.');
 
   // Normalize model name: accept either raw id like "gemini-2.5-flash" or full path.
-  const rawModel = (process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp').replace(/^models\//, '');
+  // Recommend a stable model by default. Override with GEMINI_MODEL if needed.
+  const rawModel = (process.env.GEMINI_MODEL || 'gemini-1.5-flash').replace(/^models\//, '');
   const aliasMap: Record<string, string> = {
     // Map very old shorthand to a modern default
     'gemini-flash': 'gemini-2.0-flash-exp',

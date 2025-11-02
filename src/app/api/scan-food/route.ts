@@ -115,48 +115,80 @@ export async function POST(request: NextRequest) {
         // Gracefully return a client error with clear message, rather than throwing
         return NextResponse.json({ error: 'No food items detected in image', details: 'Vision model returned no detectable concepts.' }, { status: 422 });
     }
-    // HIGH ACCURACY MODE: Require 85% confidence minimum for reliable detection
+    // EXTREME ACCURACY MODE: Lower threshold to 75% to catch more complex foods
+    // Use top 5 concepts for better multi-ingredient detection
     const highConfidenceConcepts = aiConcepts
-        .filter(c => c.confidence >= 0.85)
+        .filter(c => c.confidence >= 0.75)
+        .slice(0, 5)  // Take top 5 concepts for better coverage
         .map(c => c.name.toLowerCase());
+    
+    console.log(`Vision detected ${aiConcepts.length} concepts, using ${highConfidenceConcepts.length} high-confidence items:`, 
+                highConfidenceConcepts.map((c, i) => `${c} (${(aiConcepts[i].confidence * 100).toFixed(1)}%)`).join(', '));
 
     if (highConfidenceConcepts.length > 0) {
-        let bestMatch = { score: 0, item: null as typeof foodDatabase[0] | null };
+        let bestMatch = { score: 0, item: null as typeof foodDatabase[0] | null, matchedConcepts: [] as string[] };
+        
         foodDatabase.forEach(item => {
             let score = 0;
+            const matchedConcepts: string[] = [];
             const keywords = item.keywords.map(k => k.toLowerCase());
+            
+            // Score exact keyword matches
             highConfidenceConcepts.forEach(concept => {
                 if (keywords.includes(concept)) {
-                    score++;
+                    score += 10;  // Exact match gets high score
+                    matchedConcepts.push(concept);
                 }
             });
+            
+            // Score partial matches (e.g., "chicken" in "chicken biryani")
+            highConfidenceConcepts.forEach(concept => {
+                keywords.forEach(keyword => {
+                    if (keyword.includes(concept) || concept.includes(keyword)) {
+                        if (!matchedConcepts.includes(concept)) {
+                            score += 5;  // Partial match gets moderate score
+                            matchedConcepts.push(concept);
+                        }
+                    }
+                });
+            });
+            
+            // Bonus for matching multiple concepts (indicates complex dish)
+            if (matchedConcepts.length > 1) {
+                score += matchedConcepts.length * 3;
+            }
+            
             if (score > bestMatch.score) {
-                bestMatch = { score, item };
+                bestMatch = { score, item, matchedConcepts };
             }
         });
 
-        if (bestMatch.score > 0 && bestMatch.item) {
+        if (bestMatch.score >= 5 && bestMatch.item) {
             finalFoodItems = bestMatch.item.ingredients;
             identifiedDishName = bestMatch.item.name;
             source = "Sovereign Database";
-            console.log(`Tier 1 Success. Matched: "${identifiedDishName}" with score ${bestMatch.score}.`);
+            console.log(`✅ Tier 1 Success. Matched: "${identifiedDishName}" with score ${bestMatch.score} (matched concepts: ${bestMatch.matchedConcepts.join(', ')})`);
         } else {
-            // Fallback to top concept if no database match
-            console.log('Tier 1 match not found. Using top AI concept as fallback.');
-            finalFoodItems = [aiConcepts[0].name];
-            identifiedDishName = aiConcepts[0].name;
-            source = "AI Vision (Clarifai)";
-            console.log(`Fallback: Using "${identifiedDishName}" at ${(aiConcepts[0].confidence * 100).toFixed(1)}% confidence.`);
+            // Fallback: Use top 3 concepts to build ingredient list for complex dishes
+            console.log('Tier 1 match not found. Using top AI concepts as fallback.');
+            const topConcepts = aiConcepts.slice(0, 3);
+            finalFoodItems = topConcepts.map(c => c.name);
+            identifiedDishName = topConcepts[0].name;
+            source = "AI Vision (Clarifai Multi-Concept)";
+            console.log(`Fallback: Using top ${topConcepts.length} concepts - "${finalFoodItems.join(', ')}" at ${(topConcepts[0].confidence * 100).toFixed(1)}% confidence.`);
+            if (topConcepts.length > 1) {
+                warnings.push(`Detected composite dish with ${topConcepts.length} components. Nutrition based on: ${finalFoodItems.join(', ')}`);
+            }
         }
     } else {
-        // Use top concepts even if below 85% confidence (but warn user)
+        // Use top concepts even if below 75% confidence (but warn user)
         console.log('No high confidence concepts found. Using best available.');
-        const topConcept = aiConcepts[0];
-        finalFoodItems = [topConcept.name];
-        identifiedDishName = topConcept.name;
+        const topConcepts = aiConcepts.slice(0, 3);
+        finalFoodItems = topConcepts.map(c => c.name);
+        identifiedDishName = topConcepts[0].name;
         source = "AI Vision (Low Confidence)";
-        warnings.push(`Food identification confidence is ${(topConcept.confidence * 100).toFixed(1)}%. Results may be less accurate.`);
-        console.log(`Low confidence mode: Using "${identifiedDishName}" at ${(topConcept.confidence * 100).toFixed(1)}%.`);
+        warnings.push(`Food identification confidence is ${(topConcepts[0].confidence * 100).toFixed(1)}%. Results may be less accurate.`);
+        console.log(`Low confidence mode: Using top ${topConcepts.length} concepts - "${finalFoodItems.join(', ')}" at ${(topConcepts[0].confidence * 100).toFixed(1)}%.`);
     }
     
     const nutritionPromises = finalFoodItems.map(name => getNutritionData(name));
@@ -193,23 +225,24 @@ export async function POST(request: NextRequest) {
                                 })();
                 const analysisPrompt = [
                   `You are a professional nutritionist analyzing food based on USDA nutrition data. Be precise and evidence-based.`,
-                  `Task: Analyze "${identifiedDishName}" with ingredients: ${finalFoodItems.join(', ')}.`,
+                  `Task: Analyze "${identifiedDishName}" which is a ${finalFoodItems.length > 1 ? 'composite dish' : 'food item'} containing: ${finalFoodItems.join(', ')}.`,
                   `USDA Data: ${JSON.stringify(conciseNutrition)}`,
                   ``,
-                  `Calculate healthScore (1-100) using these weighted factors:`,
-                  `- Calories per serving: under 200=+20, 200-400=+10, over 400=-10`,
+                  `${finalFoodItems.length > 1 ? 'For composite dishes, consider the combined nutritional impact of all ingredients. ' : ''}Calculate healthScore (1-100) using these weighted factors:`,
+                  `- Calories per serving: under 200=+20, 200-400=+10, 400-600=0, over 600=-10`,
                   `- Protein %: >20%=+20, 10-20%=+10, <10%=-5`,
                   `- Fat %: <20%=+15, 20-35%=+10, >35%=-10`,
                   `- Fiber: >5g=+15, 2-5g=+10, <2g=0`,
                   `- Sugars: <5g=+15, 5-15g=+5, >15g=-15`,
                   `- Sodium: <200mg=+10, 200-500mg=+5, >500mg=-10`,
                   ``,
-                  `Return ONLY valid JSON (no code fences, no prose):`,
-                  `{"description":"Evidence-based 1-sentence health summary citing specific nutrients.","healthScore":<calculated 1-100>,"suggestions":["Data-driven tip 1","Data-driven tip 2"]}`,
+                  `${finalFoodItems.length > 1 ? 'For multi-ingredient dishes, mention key ingredients in your description. ' : ''}Return ONLY valid JSON (no code fences, no prose):`,
+                  `{"description":"Evidence-based 1-2 sentence health summary citing specific nutrients${finalFoodItems.length > 1 ? ' and key ingredients' : ''}.","healthScore":<calculated 1-100>,"suggestions":["Data-driven tip 1","Data-driven tip 2"]}`,
                   ``,
-                  `Example: {"description":"High in saturated fat (12g) and sodium (680mg); moderate protein (15g).","healthScore":45,"suggestions":["Limit to half serving","Choose low-sodium alternative"]}`,
+                  `Example for complex dish: {"description":"Biryani combines rice (high carbs 45g), spiced chicken (protein 28g), and yogurt; moderate in fat (18g) and sodium (620mg).","healthScore":58,"suggestions":["Pair with vegetable salad","Watch portion size (1 cup)"]}`,
+                  `Example for simple food: {"description":"High in saturated fat (12g) and sodium (680mg); moderate protein (15g).","healthScore":45,"suggestions":["Limit to half serving","Choose low-sodium alternative"]}`,
                   ``,
-                  `Base healthScore strictly on the provided USDA data. Keep suggestions actionable and under 8 words each.`
+                  `Base healthScore strictly on the provided USDA data. Keep suggestions actionable and under 10 words each.`
                 ].join(' ');                
                 
                 // Enhanced AI analysis with better error handling
@@ -219,7 +252,7 @@ export async function POST(request: NextRequest) {
                 console.log('Attempting AI analysis with Gemini...');
                 try {
                     raw = await callGeminiWithRetry(analysisPrompt, { 
-                        maxTokens: 800, 
+                        maxTokens: 1200,  // Increased for multi-ingredient analysis
                         temperature: 0.3, 
                         retries: 3, // Increased retries
                         responseMimeType: 'application/json' 

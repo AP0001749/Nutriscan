@@ -150,9 +150,149 @@ export const foodDatabase: FoodItem[] = [
     keywords: ['pho', 'vietnamese', 'soup', 'noodles', 'broth'],
   },
   {
-    name: 'Biryani',
-    ingredients: ['Rice', 'Chicken', 'Spices', 'Yogurt', 'Onions'],
-    keywords: ['biryani', 'rice', 'indian', 'chicken', 'curry'],
+    name: 'Chicken Biryani',
+    ingredients: ['Basmati Rice', 'Chicken', 'Yogurt', 'Onions', 'Ginger', 'Garlic', 'Biryani Spices', 'Saffron'],
+    keywords: ['biryani', 'chicken biryani', 'rice', 'indian', 'chicken', 'spiced rice', 'hyderabadi'],
+  },
+  {
+    name: 'Mutton Biryani',
+    ingredients: ['Basmati Rice', 'Mutton', 'Yogurt', 'Onions', 'Ginger', 'Garlic', 'Biryani Spices', 'Saffron'],
+    keywords: ['biryani', 'mutton biryani', 'lamb biryani', 'rice', 'indian', 'mutton', 'lamb'],
+  },
+  {
+    name: 'Vegetable Biryani',
+    ingredients: ['Basmati Rice', 'Mixed Vegetables', 'Yogurt', 'Onions', 'Biryani Spices', 'Cashews'],
+    keywords: ['biryani', 'veg biryani', 'vegetable biryani', 'rice', 'indian', 'vegetarian'],
+  },
+  {
+    name: 'Chicken Curry',
+    ingredients: ['Chicken', 'Onions', 'Tomatoes', 'Curry Spices', 'Coconut Milk', 'Ginger', 'Garlic'],
+    keywords: ['curry', 'chicken curry', 'indian', 'gravy', 'masala', 'tikka masala'],
+  },
+  {
+    name: 'Butter Chicken',
+    ingredients: ['Chicken', 'Butter', 'Cream', 'Tomato Sauce', 'Curry Spices', 'Fenugreek'],
+    keywords: ['butter chicken', 'murgh makhani', 'indian', 'curry', 'creamy', 'tikka'],
+  },
+  {
+    name: 'Palak Paneer',
+    ingredients: ['Spinach', 'Paneer Cheese', 'Onions', 'Tomatoes', 'Cream', 'Spices'],
+    keywords: ['palak paneer', 'spinach', 'paneer', 'indian', 'curry', 'vegetarian'],
+  },
+  {
+    name: 'Dal Tadka',
+    ingredients: ['Lentils', 'Onions', 'Tomatoes', 'Ghee', 'Cumin', 'Garlic', 'Spices'],
+    keywords: ['dal', 'lentils', 'indian', 'daal', 'tadka', 'vegetarian'],
+  },
+  {
+    name: 'Chicken Stir Fry',
+    ingredients: ['Chicken', 'Bell Peppers', 'Onions', 'Broccoli', 'Soy Sauce', 'Garlic', 'Ginger'],
+    keywords: ['stir fry', 'chicken', 'chinese', 'vegetables', 'wok', 'asian'],
+  },
+  {
+    name: 'Beef Stir Fry',
+    ingredients: ['Beef', 'Bell Peppers', 'Onions', 'Broccoli', 'Soy Sauce', 'Garlic', 'Ginger'],
+    keywords: ['stir fry', 'beef', 'chinese', 'vegetables', 'wok', 'asian'],
+  },
+  {
+    name: 'Veggie Stir Fry',
+    ingredients: ['Bell Peppers', 'Broccoli', 'Carrots', 'Mushrooms', 'Soy Sauce', 'Garlic', 'Ginger'],
+    keywords: ['stir fry', 'vegetable', 'chinese', 'vegetables', 'wok', 'asian', 'veggie'],
+  },
+  {
+    name: 'Chow Mein',
+    ingredients: ['Noodles', 'Chicken', 'Cabbage', 'Carrots', 'Bean Sprouts', 'Soy Sauce'],
+    keywords: ['chow mein', 'noodles', 'chinese', 'asian', 'chicken', 'lo mein'],
+  },
+  {
+    name: 'Spring Rolls',
+    ingredients: ['Rice Paper', 'Shrimp', 'Vegetables', 'Noodles', 'Herbs'],
+    keywords: ['spring roll', 'roll', 'vietnamese', 'asian', 'fresh', 'wrapper'],
+  },
+  {
+    name: 'Egg Fried Rice',
+    ingredients: ['Rice', 'Eggs', 'Peas', 'Carrots', 'Soy Sauce', 'Scallions'],
+    keywords: ['fried rice', 'egg fried rice', 'rice', 'chinese', 'asian', 'egg'],
+  },
+  {
+    name: 'Beef Tacos',
+    ingredients: ['Tortilla', 'Ground Beef', 'Lettuce', 'Cheese', 'Salsa', 'Sour Cream'],
+    keywords: ['taco', 'beef taco', 'mexican', 'tortilla', 'beef', 'shell'],
+  },
+  {
+    name: 'Chicken Tacos',
+    ingredients: ['Tortilla', 'Chicken', 'Lettuce', 'Cheese', 'Salsa', 'Sour Cream'],
+    keywords: ['taco', 'chicken taco', 'mexican', 'tortilla', 'chicken', 'shell'],
+  },
+  {
+    name: 'Fish Tacos',
+    ingredients: ['Tortilla', 'White Fish', 'Cabbage', 'Lime', 'Cilantro', 'Crema'],
+    keywords: ['taco', 'fish taco', 'mexican', 'tortilla', 'fish', 'seafood'],
+  },
+  {
+    name: 'Quesadilla',
+    ingredients: ['Tortilla', 'Cheese', 'Chicken', 'Bell Peppers', 'Onions'],
+    keywords: ['quesadilla', 'mexican', 'tortilla', 'cheese', 'chicken'],
+  },
+  {
+    name: 'Enchiladas',
+    ingredients: ['Tortilla', 'Chicken', 'Cheese', 'Enchilada Sauce', 'Sour Cream'],
+    keywords: ['enchilada', 'mexican', 'tortilla', 'cheese', 'sauce'],
+  },
+  {
+    name: 'Nachos',
+    ingredients: ['Tortilla Chips', 'Cheese', 'Jalapenos', 'Sour Cream', 'Guacamole', 'Salsa'],
+    keywords: ['nachos', 'chips', 'mexican', 'cheese', 'snack'],
+  },
+  {
+    name: 'Fajitas',
+    ingredients: ['Tortilla', 'Chicken', 'Bell Peppers', 'Onions', 'Sour Cream', 'Guacamole'],
+    keywords: ['fajita', 'mexican', 'chicken', 'peppers', 'tortilla'],
+  },
+  {
+    name: 'Lasagna',
+    ingredients: ['Pasta', 'Ground Beef', 'Ricotta Cheese', 'Mozzarella', 'Tomato Sauce'],
+    keywords: ['lasagna', 'pasta', 'italian', 'cheese', 'beef', 'baked'],
+  },
+  {
+    name: 'Spaghetti Carbonara',
+    ingredients: ['Spaghetti', 'Bacon', 'Eggs', 'Parmesan Cheese', 'Black Pepper'],
+    keywords: ['carbonara', 'spaghetti', 'pasta', 'italian', 'bacon', 'creamy'],
+  },
+  {
+    name: 'Fettuccine Alfredo',
+    ingredients: ['Fettuccine', 'Butter', 'Cream', 'Parmesan Cheese', 'Garlic'],
+    keywords: ['alfredo', 'fettuccine', 'pasta', 'italian', 'cream', 'cheese'],
+  },
+  {
+    name: 'Chicken Parmesan',
+    ingredients: ['Chicken Breast', 'Breading', 'Mozzarella Cheese', 'Tomato Sauce', 'Parmesan'],
+    keywords: ['chicken parmesan', 'chicken parm', 'italian', 'breaded', 'cheese'],
+  },
+  {
+    name: 'Margherita Pizza',
+    ingredients: ['Pizza Dough', 'Tomato Sauce', 'Mozzarella', 'Basil', 'Olive Oil'],
+    keywords: ['pizza', 'margherita', 'cheese', 'italian', 'tomato', 'basil'],
+  },
+  {
+    name: 'Pepperoni Pizza',
+    ingredients: ['Pizza Dough', 'Tomato Sauce', 'Mozzarella', 'Pepperoni'],
+    keywords: ['pizza', 'pepperoni', 'cheese', 'italian', 'meat'],
+  },
+  {
+    name: 'BBQ Chicken Pizza',
+    ingredients: ['Pizza Dough', 'BBQ Sauce', 'Chicken', 'Red Onions', 'Mozzarella'],
+    keywords: ['pizza', 'bbq', 'chicken', 'barbecue', 'cheese'],
+  },
+  {
+    name: 'Veggie Pizza',
+    ingredients: ['Pizza Dough', 'Tomato Sauce', 'Mozzarella', 'Bell Peppers', 'Mushrooms', 'Onions'],
+    keywords: ['pizza', 'vegetable', 'veggie', 'cheese', 'peppers'],
+  },
+  {
+    name: 'Sushi Roll',
+    ingredients: ['Sushi Rice', 'Nori', 'Tuna', 'Salmon', 'Avocado', 'Cucumber'],
+    keywords: ['sushi', 'maki', 'roll', 'japanese', 'fish', 'rice', 'seaweed'],
   },
   {
     name: 'Sandwich',
