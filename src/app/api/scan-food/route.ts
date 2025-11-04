@@ -201,165 +201,193 @@ export async function POST(request: NextRequest) {
     let source: string = '';
     const warnings: string[] = [];
 
-    // --- Deterministic Fusion Engine ---
-    console.log('Fusion Engine: Step 1 - High-Confidence Concept Generation...');
+    // --- PRAETORIAN FUSION ENGINE: Multi-Concept Primary Intelligence ---
+    console.log('🔱 Fusion Engine: Step 1 - Multi-Concept Extraction from Vision API...');
     const aiConcepts = await getAIConcepts(imageBuffer);
     if (!aiConcepts || aiConcepts.length === 0) {
-        // Gracefully return a client error with clear message, rather than throwing
         return NextResponse.json({ error: 'No food items detected in image', details: 'Vision model returned no detectable concepts.' }, { status: 422 });
     }
-    // EXTREME ACCURACY MODE: Lower threshold to 75% to catch more complex foods
-    // Use top 5 concepts for better multi-ingredient detection
-    const highConfidenceConcepts = aiConcepts
-        .filter(c => c.confidence >= 0.75)
-        .slice(0, 5)  // Take top 5 concepts for better coverage
-        .map(c => c.name.toLowerCase());
     
-    console.log(`Vision detected ${aiConcepts.length} concepts, using ${highConfidenceConcepts.length} high-confidence items:`, 
-                highConfidenceConcepts.map((c, i) => `${c} (${(aiConcepts[i].confidence * 100).toFixed(1)}%)`).join(', '));
-
-    // METRIC 1 (Identification Accuracy): Enhanced vision matching with common food prioritization
-    if (highConfidenceConcepts.length > 0) {
-        let bestMatch = { score: 0, item: null as typeof foodDatabase[0] | null, matchedConcepts: [] as string[], confidence: 0 };
+    // Extract top 5 high-confidence concepts (≥60% threshold for better coverage)
+    const topConcepts = aiConcepts
+        .filter(c => c.confidence >= 0.60)
+        .slice(0, 5);
+    
+    if (topConcepts.length === 0) {
+        // Absolute fallback: use top 3 even if confidence is low
+        topConcepts.push(...aiConcepts.slice(0, 3));
+        warnings.push(`Low vision confidence (${(aiConcepts[0].confidence * 100).toFixed(0)}%) - results may vary`);
+    }
+    
+    const conceptNames = topConcepts.map(c => c.name);
+    const conceptsDisplay = topConcepts.map(c => `${c.name} (${(c.confidence * 100).toFixed(0)}%)`).join(', ');
+    console.log(`Vision API returned ${aiConcepts.length} concepts → Using top ${topConcepts.length}: ${conceptsDisplay}`);
+    
+    // --- PRAETORIAN FUSION ENGINE: Gemini Synthesis (PRIMARY, NOT FALLBACK) ---
+    console.log('🔱 Fusion Engine: Step 2 - Gemini Multi-Concept Synthesis...');
+    
+    try {
+        const fusionPrompt = [
+            `You are a food identification expert analyzing vision system output.`,
+            ``,
+            `Vision detected these ${topConcepts.length} food concepts:`,
+            `${conceptNames.map((name, i) => `  ${i + 1}. ${name} (${(topConcepts[i].confidence * 100).toFixed(0)}% confidence)`).join('\n')}`,
+            ``,
+            `TASK: Synthesize these into ONE precise dish name.`,
+            ``,
+            `RULES:`,
+            `• Multi-ingredient dish (pasta+meat+sauce) → specific recipe (Spaghetti Bolognese)`,
+            `• Single dominant concept (apple) → use it directly (Apple)`,
+            `• Composite meal (rice+chicken+curry) → full dish name (Chicken Curry with Rice)`,
+            `• Beverage components (blackberry+yogurt+smoothie) → complete drink (Blackberry Yogurt Smoothie)`,
+            `• Ambiguous mix → best-fit common dish based on concept weights`,
+            ``,
+            `CRITICAL: Return ONLY the dish name. No explanation. No quotes. No punctuation.`,
+            ``,
+            `EXAMPLES:`,
+            `["pasta", "meat", "sauce", "cheese"] → Spaghetti Bolognese`,
+            `["apple"] → Apple`,
+            `["blackberry", "yogurt", "drink"] → Blackberry Smoothie`,
+            `["baked pasta", "casserole", "cheese", "tomato"] → Baked Pasta Casserole`,
+            `["rice", "chicken", "vegetables"] → Chicken Fried Rice`,
+            ``,
+            `INPUT CONCEPTS: ${conceptNames.join(', ')}`,
+            `OUTPUT DISH NAME:`
+        ].join('\n');
         
-        // Common foods that should be prioritized for accuracy (weighted higher)
-        const commonFoodKeywords = new Set([
-            'apple', 'banana', 'orange', 'chicken', 'beef', 'fish', 'salmon', 'rice', 'pasta',
-            'pizza', 'burger', 'sandwich', 'salad', 'egg', 'bread', 'cheese', 'yogurt',
-            'potato', 'tomato', 'carrot', 'broccoli', 'steak', 'taco', 'burrito'
-        ]);
+        const synthesizedDish = await callGeminiWithRetry(fusionPrompt, {
+            maxTokens: 30,
+            temperature: 0.15, // Very low for deterministic naming
+            retries: 3
+        });
+        
+        // Clean response (with null safety)
+        identifiedDishName = (synthesizedDish || topConcepts[0].name).trim().replace(/^["']|["']$/g, '').replace(/\.$/, '');
+        
+        // Validate output is reasonable (not empty, not too long, not just repeating input)
+        if (!identifiedDishName || identifiedDishName.length < 3 || identifiedDishName.length > 100) {
+            throw new Error(`Invalid fusion output: "${identifiedDishName}"`);
+        }
+        
+        finalFoodItems = conceptNames; // All concepts contribute to nutrition lookup
+        source = "Gemini Fusion Engine (Primary)";
+        
+        console.log(`✅ Fusion Engine: Synthesized "${identifiedDishName}" from [${conceptNames.join(', ')}]`);
+        
+        // Only add warning if we had to use low-confidence concepts
+        if (topConcepts[0].confidence < 0.75) {
+            warnings.push(`Multi-concept fusion used (primary vision confidence: ${(topConcepts[0].confidence * 100).toFixed(0)}%)`);
+        }
+        
+    } catch (fusionError) {
+        // Fallback: Use database matching ONLY if Gemini fails
+        console.error('❌ Fusion Engine failed, falling back to database matching:', fusionError);
+        
+        const highConfidenceConcepts = topConcepts.map(c => c.name.toLowerCase());
+        let bestMatch = { score: 0, item: null as typeof foodDatabase[0] | null, matchedConcepts: [] as string[] };
         
         foodDatabase.forEach(item => {
             let score = 0;
             const matchedConcepts: string[] = [];
             const keywords = item.keywords.map(k => k.toLowerCase());
             
-            // Check if this is a common food (boost its score for better accuracy on simple items)
-            const isCommonFood = keywords.some(k => commonFoodKeywords.has(k));
-            const commonFoodBoost = isCommonFood ? 1.5 : 1.0;
-            
-            // METRIC 1: Score exact keyword matches (primary identification signal)
             highConfidenceConcepts.forEach((concept, idx) => {
-                const conceptConfidence = aiConcepts[idx]?.confidence || 0.75;
+                const conceptConfidence = topConcepts[idx]?.confidence || 0.60;
                 
                 if (keywords.includes(concept)) {
-                    // Exact match: high score weighted by vision confidence
-                    const baseScore = 10 * commonFoodBoost;
-                    score += baseScore * conceptConfidence;
+                    score += 10 * conceptConfidence;
                     matchedConcepts.push(concept);
+                } else {
+                    keywords.forEach(keyword => {
+                        if (keyword.includes(concept) && concept.length >= 4) {
+                            if (!matchedConcepts.includes(concept)) {
+                                score += 5 * conceptConfidence;
+                                matchedConcepts.push(concept);
+                            }
+                        }
+                    });
                 }
             });
             
-            // METRIC 1: Score partial matches with fuzzy matching for identification accuracy
-            highConfidenceConcepts.forEach((concept, idx) => {
-                const conceptConfidence = aiConcepts[idx]?.confidence || 0.75;
-                
-                keywords.forEach(keyword => {
-                    // Substring match (e.g., "chicken" in "chicken biryani")
-                    if (keyword.includes(concept) && concept.length >= 4) {
-                        if (!matchedConcepts.includes(concept)) {
-                            score += (5 * commonFoodBoost) * conceptConfidence;
-                            matchedConcepts.push(concept);
-                        }
-                    }
-                    // Reverse substring (e.g., "biryani" matches "chicken biryani")
-                    else if (concept.includes(keyword) && keyword.length >= 4) {
-                        if (!matchedConcepts.includes(concept)) {
-                            score += (4 * commonFoodBoost) * conceptConfidence;
-                            matchedConcepts.push(concept);
-                        }
-                    }
-                });
-            });
-            
-            // METRIC 1: Bonus for matching multiple concepts (validates composite dish identification)
-            if (matchedConcepts.length > 1) {
-                score += matchedConcepts.length * 3 * commonFoodBoost;
-            }
-            
-            // METRIC 1: Penalize ambiguous matches (too many partial hits suggests wrong food)
-            if (matchedConcepts.length > 4) {
-                score *= 0.8; // Reduce score if too many weak matches
-            }
+            if (matchedConcepts.length > 1) score += matchedConcepts.length * 3;
             
             if (score > bestMatch.score) {
-                bestMatch = { 
-                    score, 
-                    item, 
-                    matchedConcepts,
-                    confidence: matchedConcepts.length > 0 ? (aiConcepts[0]?.confidence || 0.75) : 0
-                };
+                bestMatch = { score, item, matchedConcepts };
             }
         });
-
-        // METRIC 1: Require minimum confidence threshold for database match
-        const minScoreThreshold = 5;
-        if (bestMatch.score >= minScoreThreshold && bestMatch.item) {
+        
+        if (bestMatch.score >= 5 && bestMatch.item) {
             finalFoodItems = bestMatch.item.ingredients;
             identifiedDishName = bestMatch.item.name;
-            source = "Sovereign Database";
-            console.log(`✅ METRIC 1: Tier 1 Success. Identified: "${identifiedDishName}" with score ${bestMatch.score.toFixed(1)} (matched: ${bestMatch.matchedConcepts.join(', ')})`);
+            source = "Database Fallback";
+            console.log(`✅ Database fallback: "${identifiedDishName}" (score: ${bestMatch.score.toFixed(1)})`);
         } else {
-            // METRIC 1 Fallback: Use top concepts with confidence weighting
-            console.log('METRIC 1: Tier 1 match below threshold. Using top AI concepts as fallback.');
-            const topConcepts = aiConcepts.slice(0, 3);
-            finalFoodItems = topConcepts.map(c => c.name);
+            // Last resort: use top concept
             identifiedDishName = topConcepts[0].name;
-            source = "AI Vision (Clarifai Multi-Concept)";
-            console.log(`Fallback: Using top ${topConcepts.length} concepts - "${finalFoodItems.join(', ')}" at ${(topConcepts[0].confidence * 100).toFixed(1)}% confidence.`);
-            if (topConcepts.length > 1) {
-                warnings.push(`Detected composite dish with ${topConcepts.length} components. Nutrition based on: ${finalFoodItems.join(', ')}`);
-            }
-            // METRIC 1: Add confidence warning if below 80%
-            if (topConcepts[0].confidence < 0.80) {
-                warnings.push(`Identification confidence ${(topConcepts[0].confidence * 100).toFixed(0)}% - results may vary`);
-            }
+            finalFoodItems = conceptNames;
+            source = "Vision Primary Concept (Fusion Failed)";
+            warnings.push(`AI fusion unavailable - using vision primary: "${identifiedDishName}"`);
+            console.log(`⚠️ Last resort: Using top vision concept "${identifiedDishName}"`);
         }
-    } else {
-        // Use top concepts even if below 75% confidence (but warn user)
-        console.log('No high confidence concepts found. Using best available.');
-        const topConcepts = aiConcepts.slice(0, 3);
-        finalFoodItems = topConcepts.map(c => c.name);
-        identifiedDishName = topConcepts[0].name;
-        source = "AI Vision (Low Confidence)";
-        warnings.push(`Food identification confidence is ${(topConcepts[0].confidence * 100).toFixed(1)}%. Results may be less accurate.`);
-        console.log(`Low confidence mode: Using top ${topConcepts.length} concepts - "${finalFoodItems.join(', ')}" at ${(topConcepts[0].confidence * 100).toFixed(1)}%.`);
     }
     
-    // METRIC 2 ENHANCEMENT: Hybrid nutrition lookup with Nutritionix fallback
-    console.log(`Fetching nutrition data for ${finalFoodItems.length} food item(s)...`);
-    const nutritionPromises = finalFoodItems.map(async (name) => {
-        // Try USDA first (free, comprehensive government database)
-        let result = await getNutritionData(name);
-        if (result) {
-            console.log(`✅ USDA: Found nutrition data for "${name}"`);
-            return { result, source: 'USDA' };
-        }
-        
-        // Fallback to Nutritionix (better for branded foods and restaurant items)
-        console.log(`⚠️ USDA failed for "${name}", trying Nutritionix fallback...`);
-        result = await getNutritionDataFromNutritionix(name);
-        if (result) {
-            console.log(`✅ Nutritionix: Found nutrition data for "${name}"`);
-            return { result, source: 'Nutritionix' };
-        }
-        
-        console.error(`❌ Both USDA and Nutritionix failed for "${name}"`);
-        return { result: null, source: 'none' };
-    });
+    // METRIC 2 ENHANCEMENT: Intelligent Hybrid Nutrition Lookup
+    // Strategy: Try synthesized dish name FIRST (most accurate), then fall back to components
+    console.log(`🔱 Nutrition Lookup: Primary strategy using dish name "${identifiedDishName}"...`);
     
-    const nutritionResults = await Promise.all(nutritionPromises);
     const nutritionData: NutritionInfo[] = [];
     const nutritionSources: string[] = [];
     
-    nutritionResults.forEach((item, idx) => {
-      if (item.result) {
-          nutritionData.push(item.result);
-          nutritionSources.push(item.source);
-      } else {
-          warnings.push(`Nutrition lookup failed for: ${finalFoodItems[idx]} (tried USDA + Nutritionix)`);
-      }
-    });
+    // STEP 1: Try nutrition lookup for the SYNTHESIZED DISH NAME (highest accuracy)
+    let dishNutrition = await getNutritionData(identifiedDishName);
+    if (!dishNutrition) {
+        console.log(`⚠️ USDA failed for "${identifiedDishName}", trying Nutritionix...`);
+        dishNutrition = await getNutritionDataFromNutritionix(identifiedDishName);
+    }
+    
+    if (dishNutrition) {
+        // SUCCESS: We have nutrition for the complete dish
+        nutritionData.push(dishNutrition);
+        nutritionSources.push(dishNutrition.brand_name ? 'Nutritionix' : 'USDA');
+        console.log(`✅ Found complete dish nutrition for "${identifiedDishName}" from ${nutritionSources[0]}`);
+    } else {
+        // STEP 2: Fallback to component-by-component lookup (legacy behavior)
+        console.log(`⚠️ No nutrition data for complete dish "${identifiedDishName}"`);
+        console.log(`🔄 Fallback: Looking up ${finalFoodItems.length} individual component(s)...`);
+        
+        const nutritionPromises = finalFoodItems.map(async (name) => {
+            let result = await getNutritionData(name);
+            if (result) {
+                console.log(`✅ USDA: Found nutrition data for "${name}"`);
+                return { result, source: 'USDA' };
+            }
+            
+            console.log(`⚠️ USDA failed for "${name}", trying Nutritionix fallback...`);
+            result = await getNutritionDataFromNutritionix(name);
+            if (result) {
+                console.log(`✅ Nutritionix: Found nutrition data for "${name}"`);
+                return { result, source: 'Nutritionix' };
+            }
+            
+            console.error(`❌ Both USDA and Nutritionix failed for "${name}"`);
+            return { result: null, source: 'none' };
+        });
+        
+        const nutritionResults = await Promise.all(nutritionPromises);
+        
+        nutritionResults.forEach((item, idx) => {
+            if (item.result) {
+                nutritionData.push(item.result);
+                nutritionSources.push(item.source);
+            } else {
+                warnings.push(`Nutrition lookup failed for component: ${finalFoodItems[idx]}`);
+            }
+        });
+        
+        if (nutritionData.length > 0) {
+            warnings.push(`Using component nutrition (${nutritionData.length}/${finalFoodItems.length} found) - may underestimate total`);
+        }
+    }
     
     // Log nutrition source breakdown
     if (nutritionSources.length > 0) {
