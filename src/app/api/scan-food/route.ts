@@ -57,6 +57,55 @@ export const runtime = "nodejs";
 // --- Utility helpers ---
 function clamp(num: number, min: number, max: number) { return Math.max(min, Math.min(num, max)); }
 
+// Heuristic correction layer to fix common misnamings (e.g., burrito vs sandwich)
+function applyHeuristicDishCorrections(name: string, conceptNames: string[]): string {
+    const lowerName = name.toLowerCase();
+    const lc = conceptNames.map(c => c.toLowerCase());
+    const has = (...keys: string[]) => keys.some(k => lc.includes(k));
+    const tortilla = has('tortilla');
+    const rice = has('rice', 'white rice', 'brown rice');
+    const beans = has('beans', 'black beans', 'pinto beans', 'refried beans', 'kidney beans');
+    const salsa = has('salsa', 'pico de gallo');
+    const guac = has('guacamole', 'avocado');
+    const cheese = has('cheese', 'cheddar', 'mozzarella', 'monterey jack', 'queso');
+    const lettuce = has('lettuce');
+    const chicken = has('chicken');
+    const beef = has('beef', 'ground beef', 'steak');
+    const pork = has('pork', 'bacon', 'ham');
+    const fish = has('fish', 'white fish', 'tilapia', 'salmon');
+
+    // Strong burrito signal: tortilla + (rice or beans) + (salsa or guac or cheese)
+    if (tortilla && (rice || beans) && (salsa || guac || cheese)) {
+        let protein = '';
+        if (chicken) protein = 'Chicken ';
+        else if (beef) protein = 'Beef ';
+        else if (pork) protein = 'Pork ';
+        else if (fish) protein = 'Fish ';
+        return `${protein}Burrito`.trim();
+    }
+
+    // Taco signal: tortilla + protein + salsa/lettuce without rice/beans dominance
+    if (tortilla && (chicken || beef || pork || fish) && (salsa || lettuce) && !(rice && beans)) {
+        const protein = chicken ? 'Chicken ' : beef ? 'Beef ' : pork ? 'Pork ' : fish ? 'Fish ' : '';
+        return `${protein}Tacos`.trim();
+    }
+
+    // Quesadilla signal: tortilla + cheese without rice/beans
+    if (tortilla && cheese && !(rice || beans)) {
+        const protein = chicken ? 'Chicken ' : beef ? 'Beef ' : '';
+        return `${protein}Quesadilla`.trim();
+    }
+
+    // If the model called it a sandwich but tortilla/mexican signals are present, prefer burrito/tacos
+    if (lowerName.includes('sandwich') && (tortilla || salsa || guac)) {
+        if (rice || beans) return 'Burrito';
+        const protein = chicken ? 'Chicken ' : beef ? 'Beef ' : pork ? 'Pork ' : fish ? 'Fish ' : '';
+        return `${protein}Tacos`.trim();
+    }
+
+    return name;
+}
+
 // --- SELF-CONTAINED HELPER FUNCTIONS ---
 async function getNutritionData(foodName: string): Promise<NutritionInfo | null> {
     const USDA_API_KEY = process.env.USDA_API_KEY;
@@ -304,6 +353,8 @@ export async function POST(request: NextRequest) {
     // Clean response (with null safety) and normalize to canonical dish
     identifiedDishName = (synthesizedDish || topConcepts[0].name).trim().replace(/^["']|["']$/g, '').replace(/\.$/, '');
     identifiedDishName = normalizeDishName(identifiedDishName);
+    // Heuristic corrections for common misnamings (e.g., burrito vs sandwich)
+    identifiedDishName = applyHeuristicDishCorrections(identifiedDishName, conceptNames);
         
         // Validate output is reasonable (not empty, not too long, not just repeating input)
         if (!identifiedDishName || identifiedDishName.length < 3 || identifiedDishName.length > 100) {
@@ -361,11 +412,13 @@ export async function POST(request: NextRequest) {
             finalFoodItems = bestMatch.item.ingredients;
             // Prefer snapping to known canonical dish when fusion failed
             identifiedDishName = normalizeDishName(bestMatch.item.name);
+            identifiedDishName = applyHeuristicDishCorrections(identifiedDishName, conceptNames);
             source = "Database Fallback";
             console.log(`✅ Database fallback: "${identifiedDishName}" (score: ${bestMatch.score.toFixed(1)})`);
         } else {
             // Last resort: use top concept
             identifiedDishName = normalizeDishName(topConcepts[0].name);
+            identifiedDishName = applyHeuristicDishCorrections(identifiedDishName, conceptNames);
             finalFoodItems = conceptNames;
             source = "Vision Primary Concept (Fusion Failed)";
             warnings.push(`AI fusion unavailable - using vision primary: "${identifiedDishName}"`);
