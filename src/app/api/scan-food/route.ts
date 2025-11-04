@@ -27,6 +27,30 @@ interface UsdaDetailsResponse {
 interface ClarifaiConcept { name: string; value: number }
 interface ClarifaiOutput { outputs?: Array<{ data?: { concepts?: ClarifaiConcept[] } }> }
 
+// Nutritionix API types for fallback nutrition lookup
+interface NutritionixFood {
+    food_name: string;
+    brand_name?: string | null;
+    serving_qty: number;
+    serving_unit: string;
+    serving_weight_grams: number;
+    nf_calories: number | null;
+    nf_total_fat: number | null;
+    nf_saturated_fat: number | null;
+    nf_cholesterol: number | null;
+    nf_sodium: number | null;
+    nf_total_carbohydrate: number | null;
+    nf_dietary_fiber: number | null;
+    nf_sugars: number | null;
+    nf_protein: number | null;
+    nf_potassium: number | null;
+    nf_p: number | null;
+}
+
+interface NutritionixResponse {
+    foods?: NutritionixFood[];
+}
+
 export const runtime = "nodejs";
 
 // --- SELF-CONTAINED HELPER FUNCTIONS ---
@@ -71,6 +95,75 @@ async function getNutritionData(foodName: string): Promise<NutritionInfo | null>
         };
     } catch (error) {
         console.error(`Direct nutrition fetch error for "${foodName}":`, error);
+        return null;
+    }
+}
+
+// METRIC 2 ENHANCEMENT: Nutritionix fallback for when USDA fails
+async function getNutritionDataFromNutritionix(foodName: string): Promise<NutritionInfo | null> {
+    const NUTRITIONIX_APP_ID = process.env.NUTRITIONIX_APP_ID;
+    const NUTRITIONIX_API_KEY = process.env.NUTRITIONIX_API_KEY;
+    
+    if (!NUTRITIONIX_APP_ID || !NUTRITIONIX_API_KEY) {
+        console.warn('Nutritionix API credentials missing - skipping fallback.');
+        return null;
+    }
+    
+    try {
+        console.log(`Nutritionix fallback: Looking up "${foodName}"...`);
+        const response = await fetch('https://trackapi.nutritionix.com/v2/natural/nutrients', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-app-id': NUTRITIONIX_APP_ID,
+                'x-app-key': NUTRITIONIX_API_KEY,
+            },
+            body: JSON.stringify({ query: foodName })
+        });
+        
+        if (!response.ok) {
+            console.warn(`Nutritionix API returned ${response.status}`);
+            return null;
+        }
+        
+        const data = await response.json() as NutritionixResponse;
+        if (!data.foods || data.foods.length === 0) {
+            console.warn('Nutritionix returned no results');
+            return null;
+        }
+        
+        const food = data.foods[0];
+        const localHealthData = getHealthData(food.food_name);
+        const carbs = food.nf_total_carbohydrate || 0;
+        const glycemicLoad = localHealthData.glycemicIndex ? calculateGlycemicLoad(localHealthData.glycemicIndex, carbs) : undefined;
+        const healthImpact: HealthImpact = {
+            glycemicIndex: localHealthData.glycemicIndex,
+            glycemicLoad: glycemicLoad,
+            inflammatoryScore: localHealthData.inflammatoryScore,
+        };
+        
+        console.log(`✅ Nutritionix fallback successful for "${foodName}"`);
+        return {
+            food_name: food.food_name,
+            brand_name: food.brand_name || null,
+            serving_qty: food.serving_qty,
+            serving_unit: food.serving_unit,
+            serving_weight_grams: food.serving_weight_grams,
+            nf_calories: food.nf_calories,
+            nf_total_fat: food.nf_total_fat,
+            nf_saturated_fat: food.nf_saturated_fat,
+            nf_cholesterol: food.nf_cholesterol,
+            nf_sodium: food.nf_sodium,
+            nf_total_carbohydrate: food.nf_total_carbohydrate,
+            nf_dietary_fiber: food.nf_dietary_fiber,
+            nf_sugars: food.nf_sugars,
+            nf_protein: food.nf_protein,
+            nf_potassium: food.nf_potassium,
+            nf_p: food.nf_p,
+            healthData: healthImpact,
+        };
+    } catch (error) {
+        console.error(`Nutritionix fallback error for "${foodName}":`, error);
         return null;
     }
 }
@@ -233,13 +326,47 @@ export async function POST(request: NextRequest) {
         console.log(`Low confidence mode: Using top ${topConcepts.length} concepts - "${finalFoodItems.join(', ')}" at ${(topConcepts[0].confidence * 100).toFixed(1)}%.`);
     }
     
-    const nutritionPromises = finalFoodItems.map(name => getNutritionData(name));
+    // METRIC 2 ENHANCEMENT: Hybrid nutrition lookup with Nutritionix fallback
+    console.log(`Fetching nutrition data for ${finalFoodItems.length} food item(s)...`);
+    const nutritionPromises = finalFoodItems.map(async (name) => {
+        // Try USDA first (free, comprehensive government database)
+        let result = await getNutritionData(name);
+        if (result) {
+            console.log(`✅ USDA: Found nutrition data for "${name}"`);
+            return { result, source: 'USDA' };
+        }
+        
+        // Fallback to Nutritionix (better for branded foods and restaurant items)
+        console.log(`⚠️ USDA failed for "${name}", trying Nutritionix fallback...`);
+        result = await getNutritionDataFromNutritionix(name);
+        if (result) {
+            console.log(`✅ Nutritionix: Found nutrition data for "${name}"`);
+            return { result, source: 'Nutritionix' };
+        }
+        
+        console.error(`❌ Both USDA and Nutritionix failed for "${name}"`);
+        return { result: null, source: 'none' };
+    });
+    
     const nutritionResults = await Promise.all(nutritionPromises);
     const nutritionData: NutritionInfo[] = [];
-    nutritionResults.forEach((res, idx) => {
-      if (res) nutritionData.push(res);
-      else warnings.push(`Nutrition lookup failed for: ${finalFoodItems[idx]}`);
+    const nutritionSources: string[] = [];
+    
+    nutritionResults.forEach((item, idx) => {
+      if (item.result) {
+          nutritionData.push(item.result);
+          nutritionSources.push(item.source);
+      } else {
+          warnings.push(`Nutrition lookup failed for: ${finalFoodItems[idx]} (tried USDA + Nutritionix)`);
+      }
     });
+    
+    // Log nutrition source breakdown
+    if (nutritionSources.length > 0) {
+        const usdaCount = nutritionSources.filter(s => s === 'USDA').length;
+        const nutritionixCount = nutritionSources.filter(s => s === 'Nutritionix').length;
+        console.log(`📊 Nutrition sources: ${usdaCount} from USDA, ${nutritionixCount} from Nutritionix`);
+    }
 
     if (nutritionData.length === 0) {
         // If no nutrition data for any identified ingredient, return an error.
