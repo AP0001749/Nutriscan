@@ -53,6 +53,9 @@ interface NutritionixResponse {
 
 export const runtime = "nodejs";
 
+// --- Utility helpers ---
+function clamp(num: number, min: number, max: number) { return Math.max(min, Math.min(num, max)); }
+
 // --- SELF-CONTAINED HELPER FUNCTIONS ---
 async function getNutritionData(foodName: string): Promise<NutritionInfo | null> {
     const USDA_API_KEY = process.env.USDA_API_KEY;
@@ -166,6 +169,42 @@ async function getNutritionDataFromNutritionix(foodName: string): Promise<Nutrit
         console.error(`Nutritionix fallback error for "${foodName}":`, error);
         return null;
     }
+}
+
+// MAX ACCURACY MODE: Ask Gemini to estimate a typical ingredient breakdown for a dish
+async function estimateRecipeComposition(dishName: string, conceptNames: string[]): Promise<Array<{ name: string; percent: number }>> {
+    const prompt = [
+        `You are a culinary expert. Estimate a typical ingredient breakdown for the dish: "${dishName}".`,
+        `Vision concepts observed: ${conceptNames.join(', ')}`,
+        `Return STRICT JSON only with this schema: {"ingredients":[{"name":"string","percent":number}, ...]}.`,
+        `Rules:`,
+        `- Provide 3 to 6 ingredients`,
+        `- Percents must be integers and sum to 100`,
+        `- Use common names recognized by nutrition databases (e.g., "spaghetti", "ground beef", "tomato sauce", "olive oil", "cheddar cheese")`,
+        `- Avoid brand names or regional variants unless essential`,
+        `Examples:`,
+        `Dish: Spaghetti Bolognese → {"ingredients":[{"name":"spaghetti","percent":45},{"name":"ground beef","percent":25},{"name":"tomato sauce","percent":20},{"name":"olive oil","percent":5},{"name":"parmesan cheese","percent":5}]}`,
+        `Dish: Blackberry Yogurt Smoothie → {"ingredients":[{"name":"blackberries","percent":35},{"name":"plain yogurt","percent":45},{"name":"milk","percent":15},{"name":"honey","percent":5}]}`,
+        `OUTPUT: JSON only.`
+    ].join('\n');
+
+    try {
+        const raw = await callGeminiWithRetry(prompt, { maxTokens: 300, temperature: 0.2, retries: 2, responseMimeType: 'application/json' });
+        const parsed = parseModelJson(raw) as { ingredients?: Array<{ name?: string; percent?: number }> } | null;
+        const list = Array.isArray(parsed?.ingredients) ? parsed!.ingredients! : [];
+        const cleaned = list
+            .map(e => ({ name: String((e.name || '').toString().trim()).toLowerCase(), percent: Number(e.percent ?? 0) }))
+            .filter(e => e.name && e.percent > 0);
+        const total = cleaned.reduce((s, e) => s + (isFinite(e.percent) ? e.percent : 0), 0);
+        if (cleaned.length >= 2 && total > 0) {
+            // Normalize to sum=100 and clamp
+            return cleaned.map(e => ({ name: e.name, percent: clamp(Math.round((e.percent / total) * 100), 1, 96) }))
+                          .slice(0, 6);
+        }
+    } catch (err) {
+        console.warn('Recipe composition estimation failed:', err);
+    }
+    return [];
 }
 
 async function getAIConcepts(imageBuffer: Buffer): Promise<{name: string, confidence: number}[]> {
@@ -351,9 +390,117 @@ export async function POST(request: NextRequest) {
         nutritionSources.push(dishNutrition.brand_name ? 'Nutritionix' : 'USDA');
         console.log(`✅ Found complete dish nutrition for "${identifiedDishName}" from ${nutritionSources[0]}`);
     } else {
-        // STEP 2: Fallback to component-by-component lookup (legacy behavior)
+        // STEP 2: Try AI-estimated recipe composition for aggregated nutrition
         console.log(`⚠️ No nutrition data for complete dish "${identifiedDishName}"`);
-        console.log(`🔄 Fallback: Looking up ${finalFoodItems.length} individual component(s)...`);
+        console.log('🧪 Attempting AI-estimated recipe composition for aggregated nutrition...');
+        const breakdown = await estimateRecipeComposition(identifiedDishName, conceptNames);
+        if (breakdown.length >= 2) {
+            // Fetch nutrition for each estimated ingredient, then aggregate per 100g dish
+            const parts = await Promise.all(breakdown.map(async part => {
+                let ni = await getNutritionData(part.name);
+                if (!ni) ni = await getNutritionDataFromNutritionix(part.name);
+                return { part, ni } as { part: { name: string; percent: number }, ni: NutritionInfo | null };
+            }));
+
+            const usable = parts.filter(p => p.ni !== null) as Array<{ part: { name: string; percent: number }, ni: NutritionInfo }>;
+            if (usable.length >= 2) {
+                const sumMacros = {
+                    calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugars: 0, sodium: 0,
+                    satFat: 0, cholesterol: 0, potassium: 0, phosphorus: 0
+                };
+                usable.forEach(({ part, ni }) => {
+                    const grams = ni.serving_weight_grams || 100;
+                    const w = part.percent; // grams contribution per 100g dish
+                    const toNum = (v: number | null | undefined) => (typeof v === 'number' && isFinite(v) ? v : 0);
+                    sumMacros.calories += (toNum(ni.nf_calories) / grams) * w;
+                    sumMacros.protein  += (toNum(ni.nf_protein) / grams) * w;
+                    sumMacros.carbs    += (toNum(ni.nf_total_carbohydrate) / grams) * w;
+                    sumMacros.fat      += (toNum(ni.nf_total_fat) / grams) * w;
+                    sumMacros.fiber    += (toNum(ni.nf_dietary_fiber) / grams) * w;
+                    sumMacros.sugars   += (toNum(ni.nf_sugars) / grams) * w;
+                    sumMacros.sodium   += (toNum(ni.nf_sodium) / grams) * w;
+                    sumMacros.satFat   += (toNum(ni.nf_saturated_fat) / grams) * w;
+                    sumMacros.cholesterol += (toNum(ni.nf_cholesterol) / grams) * w;
+                    sumMacros.potassium += (toNum(ni.nf_potassium) / grams) * w;
+                    sumMacros.phosphorus += (toNum(ni.nf_p) / grams) * w;
+                });
+
+                const localHealthData = getHealthData(identifiedDishName);
+                const glycemicLoad = localHealthData.glycemicIndex ? calculateGlycemicLoad(localHealthData.glycemicIndex, sumMacros.carbs) : undefined;
+                const healthImpact: HealthImpact = {
+                    glycemicIndex: localHealthData.glycemicIndex,
+                    glycemicLoad: glycemicLoad,
+                    inflammatoryScore: localHealthData.inflammatoryScore,
+                };
+
+                const composite: NutritionInfo = {
+                    food_name: `${identifiedDishName} (Estimated Composite)`,
+                    brand_name: null,
+                    serving_qty: 1,
+                    serving_unit: 'g',
+                    serving_weight_grams: 100,
+                    nf_calories: Math.round(sumMacros.calories),
+                    nf_total_fat: Number(sumMacros.fat.toFixed(1)),
+                    nf_saturated_fat: Number(sumMacros.satFat.toFixed(1)),
+                    nf_cholesterol: Math.round(sumMacros.cholesterol),
+                    nf_sodium: Math.round(sumMacros.sodium),
+                    nf_total_carbohydrate: Number(sumMacros.carbs.toFixed(1)),
+                    nf_dietary_fiber: Number(sumMacros.fiber.toFixed(1)),
+                    nf_sugars: Number(sumMacros.sugars.toFixed(1)),
+                    nf_protein: Number(sumMacros.protein.toFixed(1)),
+                    nf_potassium: Math.round(sumMacros.potassium),
+                    nf_p: Math.round(sumMacros.phosphorus),
+                    healthData: healthImpact,
+                };
+
+                nutritionData.push(composite);
+                nutritionSources.push('Composite-Estimated');
+                warnings.push(`Nutrition estimated from AI recipe composition (${usable.length}/${breakdown.length} ingredients resolved)`);
+                console.log('✅ Composite nutrition estimated from ingredient breakdown');
+            } else {
+                console.log('⚠️ Composition estimation failed to resolve enough ingredients. Falling back to components...');
+            }
+        } else {
+            console.log('⚠️ Gemini did not return a valid composition. Falling back to components...');
+        }
+
+        // STEP 3: Fallback to component-by-component lookup (legacy behavior) if still empty
+        if (nutritionData.length === 0) {
+            console.log(`🔄 Fallback: Looking up ${finalFoodItems.length} individual component(s)...`);
+            
+            const nutritionPromises = finalFoodItems.map(async (name) => {
+                let result = await getNutritionData(name);
+                if (result) {
+                    console.log(`✅ USDA: Found nutrition data for "${name}"`);
+                    return { result, source: 'USDA' };
+                }
+                
+                console.log(`⚠️ USDA failed for "${name}", trying Nutritionix fallback...`);
+                result = await getNutritionDataFromNutritionix(name);
+                if (result) {
+                    console.log(`✅ Nutritionix: Found nutrition data for "${name}"`);
+                    return { result, source: 'Nutritionix' };
+                }
+                
+                console.error(`❌ Both USDA and Nutritionix failed for "${name}"`);
+                return { result: null, source: 'none' };
+            });
+            
+            const nutritionResults = await Promise.all(nutritionPromises);
+            
+            nutritionResults.forEach((item, idx) => {
+                if (item.result) {
+                    nutritionData.push(item.result);
+                    nutritionSources.push(item.source);
+                } else {
+                    warnings.push(`Nutrition lookup failed for component: ${finalFoodItems[idx]}`);
+                }
+            });
+            
+            if (nutritionData.length > 0) {
+                warnings.push(`Using component nutrition (${nutritionData.length}/${finalFoodItems.length} found) - may underestimate total`);
+            }
+        }
         
         const nutritionPromises = finalFoodItems.map(async (name) => {
             let result = await getNutritionData(name);
