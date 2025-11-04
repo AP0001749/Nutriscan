@@ -89,7 +89,10 @@ describe('scan-food fusion engine integration (mocked externals)', () => {
       }
     }));
 
-    const route = await import('../src/app/api/scan-food/route');
+  // Mock dish-synonyms to avoid alias resolution issues in Vitest
+  await vi.doMock('@/lib/dish-synonyms', async () => ({ normalizeDishName: (s: string) => s }));
+
+  const route = await import('../src/app/api/scan-food/route');
   const req = makeRequestWithImage(Buffer.from([0x01]).toString('base64')) as unknown;
   const res = await (route as unknown as { POST: (r: unknown) => Promise<Response> }).POST(req);
     const json = await res.json();

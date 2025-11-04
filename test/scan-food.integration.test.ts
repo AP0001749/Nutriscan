@@ -47,7 +47,9 @@ describe('scan-food integration (mocked externals)', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    // Mock modules using vitest's dynamic mock API before importing the route so alias imports are intercepted
+  // Mock modules using vitest's dynamic mock API before importing the route so alias imports are intercepted
+  // Mock dish-synonyms to avoid alias resolution issues in Vitest
+  await vi.doMock('@/lib/dish-synonyms', async () => ({ normalizeDishName: (s: string) => s }));
   // vision is mocked via the Clarifai fetch response above; no direct vision-client mock needed
     // Mock gemini-client to return a valid JSON string candidate
     await vi.doMock('@/lib/gemini-client', async () => ({ default: async () => '{"description":"ok","healthScore":85,"suggestions":["eat more vegetables"]}' }));
@@ -62,7 +64,7 @@ describe('scan-food integration (mocked externals)', () => {
 
     // Mock health-data and food-data to supply minimal health calculations and food database
     await vi.doMock('@/lib/health-data', async () => ({
-      getHealthData: (name: string) => ({ glycemicIndex: 50, inflammatoryScore: 0 }),
+      getHealthData: () => ({ glycemicIndex: 50, inflammatoryScore: 0 }),
       calculateGlycemicLoad: (gi: number, carbs: number) => Math.round((gi * carbs) / 100),
     }));
 
@@ -70,9 +72,9 @@ describe('scan-food integration (mocked externals)', () => {
 
     // Import the route after mocks are in place
     const route = await import('../src/app/api/scan-food/route');
-  // Use a small valid base64 payload (1 byte) to simulate an image file
-  const req = makeRequestWithImage(Buffer.from([0x01]).toString('base64'));
-  const res = await route.POST(req as unknown as Request);
+    // Use a small valid base64 payload (1 byte) to simulate an image file
+    const req = makeRequestWithImage(Buffer.from([0x01]).toString('base64')) as unknown;
+    const res = await (route as unknown as { POST: (r: unknown) => Promise<Response> }).POST(req);
     const json = await res.json();
 
     expect(json.nutritionData).toBeDefined();

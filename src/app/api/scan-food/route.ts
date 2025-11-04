@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import callGeminiWithRetry from '@/lib/gemini-client';
+import { normalizeDishName } from '@/lib/dish-synonyms';
 import { parseModelJson, validateAIAnalysis, coerceAIAnalysis } from '@/lib/ai-output';
 import { NutritionInfo } from '@/lib/types';
 import { getHealthData, calculateGlycemicLoad } from '@/lib/health-data';
@@ -300,8 +301,9 @@ export async function POST(request: NextRequest) {
             retries: 3
         });
         
-        // Clean response (with null safety)
-        identifiedDishName = (synthesizedDish || topConcepts[0].name).trim().replace(/^["']|["']$/g, '').replace(/\.$/, '');
+    // Clean response (with null safety) and normalize to canonical dish
+    identifiedDishName = (synthesizedDish || topConcepts[0].name).trim().replace(/^["']|["']$/g, '').replace(/\.$/, '');
+    identifiedDishName = normalizeDishName(identifiedDishName);
         
         // Validate output is reasonable (not empty, not too long, not just repeating input)
         if (!identifiedDishName || identifiedDishName.length < 3 || identifiedDishName.length > 100) {
@@ -357,12 +359,13 @@ export async function POST(request: NextRequest) {
         
         if (bestMatch.score >= 5 && bestMatch.item) {
             finalFoodItems = bestMatch.item.ingredients;
-            identifiedDishName = bestMatch.item.name;
+            // Prefer snapping to known canonical dish when fusion failed
+            identifiedDishName = normalizeDishName(bestMatch.item.name);
             source = "Database Fallback";
             console.log(`✅ Database fallback: "${identifiedDishName}" (score: ${bestMatch.score.toFixed(1)})`);
         } else {
             // Last resort: use top concept
-            identifiedDishName = topConcepts[0].name;
+            identifiedDishName = normalizeDishName(topConcepts[0].name);
             finalFoodItems = conceptNames;
             source = "Vision Primary Concept (Fusion Failed)";
             warnings.push(`AI fusion unavailable - using vision primary: "${identifiedDishName}"`);
