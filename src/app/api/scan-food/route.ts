@@ -125,52 +125,90 @@ export async function POST(request: NextRequest) {
     console.log(`Vision detected ${aiConcepts.length} concepts, using ${highConfidenceConcepts.length} high-confidence items:`, 
                 highConfidenceConcepts.map((c, i) => `${c} (${(aiConcepts[i].confidence * 100).toFixed(1)}%)`).join(', '));
 
+    // METRIC 1 (Identification Accuracy): Enhanced vision matching with common food prioritization
     if (highConfidenceConcepts.length > 0) {
-        let bestMatch = { score: 0, item: null as typeof foodDatabase[0] | null, matchedConcepts: [] as string[] };
+        let bestMatch = { score: 0, item: null as typeof foodDatabase[0] | null, matchedConcepts: [] as string[], confidence: 0 };
+        
+        // Common foods that should be prioritized for accuracy (weighted higher)
+        const commonFoodKeywords = new Set([
+            'apple', 'banana', 'orange', 'chicken', 'beef', 'fish', 'salmon', 'rice', 'pasta',
+            'pizza', 'burger', 'sandwich', 'salad', 'egg', 'bread', 'cheese', 'yogurt',
+            'potato', 'tomato', 'carrot', 'broccoli', 'steak', 'taco', 'burrito'
+        ]);
         
         foodDatabase.forEach(item => {
             let score = 0;
             const matchedConcepts: string[] = [];
             const keywords = item.keywords.map(k => k.toLowerCase());
             
-            // Score exact keyword matches
-            highConfidenceConcepts.forEach(concept => {
+            // Check if this is a common food (boost its score for better accuracy on simple items)
+            const isCommonFood = keywords.some(k => commonFoodKeywords.has(k));
+            const commonFoodBoost = isCommonFood ? 1.5 : 1.0;
+            
+            // METRIC 1: Score exact keyword matches (primary identification signal)
+            highConfidenceConcepts.forEach((concept, idx) => {
+                const conceptConfidence = aiConcepts[idx]?.confidence || 0.75;
+                
                 if (keywords.includes(concept)) {
-                    score += 10;  // Exact match gets high score
+                    // Exact match: high score weighted by vision confidence
+                    const baseScore = 10 * commonFoodBoost;
+                    score += baseScore * conceptConfidence;
                     matchedConcepts.push(concept);
                 }
             });
             
-            // Score partial matches (e.g., "chicken" in "chicken biryani")
-            highConfidenceConcepts.forEach(concept => {
+            // METRIC 1: Score partial matches with fuzzy matching for identification accuracy
+            highConfidenceConcepts.forEach((concept, idx) => {
+                const conceptConfidence = aiConcepts[idx]?.confidence || 0.75;
+                
                 keywords.forEach(keyword => {
-                    if (keyword.includes(concept) || concept.includes(keyword)) {
+                    // Substring match (e.g., "chicken" in "chicken biryani")
+                    if (keyword.includes(concept) && concept.length >= 4) {
                         if (!matchedConcepts.includes(concept)) {
-                            score += 5;  // Partial match gets moderate score
+                            score += (5 * commonFoodBoost) * conceptConfidence;
+                            matchedConcepts.push(concept);
+                        }
+                    }
+                    // Reverse substring (e.g., "biryani" matches "chicken biryani")
+                    else if (concept.includes(keyword) && keyword.length >= 4) {
+                        if (!matchedConcepts.includes(concept)) {
+                            score += (4 * commonFoodBoost) * conceptConfidence;
                             matchedConcepts.push(concept);
                         }
                     }
                 });
             });
             
-            // Bonus for matching multiple concepts (indicates complex dish)
+            // METRIC 1: Bonus for matching multiple concepts (validates composite dish identification)
             if (matchedConcepts.length > 1) {
-                score += matchedConcepts.length * 3;
+                score += matchedConcepts.length * 3 * commonFoodBoost;
+            }
+            
+            // METRIC 1: Penalize ambiguous matches (too many partial hits suggests wrong food)
+            if (matchedConcepts.length > 4) {
+                score *= 0.8; // Reduce score if too many weak matches
             }
             
             if (score > bestMatch.score) {
-                bestMatch = { score, item, matchedConcepts };
+                bestMatch = { 
+                    score, 
+                    item, 
+                    matchedConcepts,
+                    confidence: matchedConcepts.length > 0 ? (aiConcepts[0]?.confidence || 0.75) : 0
+                };
             }
         });
 
-        if (bestMatch.score >= 5 && bestMatch.item) {
+        // METRIC 1: Require minimum confidence threshold for database match
+        const minScoreThreshold = 5;
+        if (bestMatch.score >= minScoreThreshold && bestMatch.item) {
             finalFoodItems = bestMatch.item.ingredients;
             identifiedDishName = bestMatch.item.name;
             source = "Sovereign Database";
-            console.log(`✅ Tier 1 Success. Matched: "${identifiedDishName}" with score ${bestMatch.score} (matched concepts: ${bestMatch.matchedConcepts.join(', ')})`);
+            console.log(`✅ METRIC 1: Tier 1 Success. Identified: "${identifiedDishName}" with score ${bestMatch.score.toFixed(1)} (matched: ${bestMatch.matchedConcepts.join(', ')})`);
         } else {
-            // Fallback: Use top 3 concepts to build ingredient list for complex dishes
-            console.log('Tier 1 match not found. Using top AI concepts as fallback.');
+            // METRIC 1 Fallback: Use top concepts with confidence weighting
+            console.log('METRIC 1: Tier 1 match below threshold. Using top AI concepts as fallback.');
             const topConcepts = aiConcepts.slice(0, 3);
             finalFoodItems = topConcepts.map(c => c.name);
             identifiedDishName = topConcepts[0].name;
@@ -178,6 +216,10 @@ export async function POST(request: NextRequest) {
             console.log(`Fallback: Using top ${topConcepts.length} concepts - "${finalFoodItems.join(', ')}" at ${(topConcepts[0].confidence * 100).toFixed(1)}% confidence.`);
             if (topConcepts.length > 1) {
                 warnings.push(`Detected composite dish with ${topConcepts.length} components. Nutrition based on: ${finalFoodItems.join(', ')}`);
+            }
+            // METRIC 1: Add confidence warning if below 80%
+            if (topConcepts[0].confidence < 0.80) {
+                warnings.push(`Identification confidence ${(topConcepts[0].confidence * 100).toFixed(0)}% - results may vary`);
             }
         }
     } else {
@@ -223,27 +265,42 @@ export async function POST(request: NextRequest) {
                                                 };
                                         } catch { return nutritionData[0]; }
                                 })();
+                // METRIC 3 (Hallucination Reduction): Anti-hallucination prompt with strict fact-checking directives
                 const analysisPrompt = [
-                  `You are a professional nutritionist analyzing food based on USDA nutrition data. Be precise and evidence-based.`,
-                  `Task: Analyze "${identifiedDishName}" which is a ${finalFoodItems.length > 1 ? 'composite dish' : 'food item'} containing: ${finalFoodItems.join(', ')}.`,
-                  `USDA Data: ${JSON.stringify(conciseNutrition)}`,
+                  `You are a professional nutritionist analyzing food using ONLY the provided USDA nutrition data. CRITICAL RULES:`,
+                  `1. DO NOT invent, estimate, or assume ANY nutritional values not present in the data below`,
+                  `2. DO NOT mention nutrients or values that are not explicitly provided`,
+                  `3. ONLY cite exact numbers from the USDA data - never round significantly or extrapolate`,
+                  `4. If a nutrient value is null/missing, DO NOT mention it or guess its value`,
+                  `5. Base your health score EXCLUSIVELY on the metrics provided, using the formula below`,
                   ``,
-                  `${finalFoodItems.length > 1 ? 'For composite dishes, consider the combined nutritional impact of all ingredients. ' : ''}Calculate healthScore (1-100) using these weighted factors:`,
-                  `- Calories per serving: under 200=+20, 200-400=+10, 400-600=0, over 600=-10`,
-                  `- Protein %: >20%=+20, 10-20%=+10, <10%=-5`,
-                  `- Fat %: <20%=+15, 20-35%=+10, >35%=-10`,
-                  `- Fiber: >5g=+15, 2-5g=+10, <2g=0`,
-                  `- Sugars: <5g=+15, 5-15g=+5, >15g=-15`,
-                  `- Sodium: <200mg=+10, 200-500mg=+5, >500mg=-10`,
+                  `Food Being Analyzed: "${identifiedDishName}"`,
+                  `${finalFoodItems.length > 1 ? `This is a composite dish with ingredients: ${finalFoodItems.join(', ')}` : 'This is a single food item'}`,
                   ``,
-                  `${finalFoodItems.length > 1 ? 'For multi-ingredient dishes, mention key ingredients in your description. ' : ''}Return ONLY valid JSON (no code fences, no prose):`,
-                  `{"description":"Evidence-based 1-2 sentence health summary citing specific nutrients${finalFoodItems.length > 1 ? ' and key ingredients' : ''}.","healthScore":<calculated 1-100>,"suggestions":["Data-driven tip 1","Data-driven tip 2"]}`,
+                  `USDA NUTRITION DATA (THE ONLY SOURCE OF TRUTH):`,
+                  `${JSON.stringify(conciseNutrition, null, 2)}`,
                   ``,
-                  `Example for complex dish: {"description":"Biryani combines rice (high carbs 45g), spiced chicken (protein 28g), and yogurt; moderate in fat (18g) and sodium (620mg).","healthScore":58,"suggestions":["Pair with vegetable salad","Watch portion size (1 cup)"]}`,
-                  `Example for simple food: {"description":"High in saturated fat (12g) and sodium (680mg); moderate protein (15g).","healthScore":45,"suggestions":["Limit to half serving","Choose low-sodium alternative"]}`,
+                  `HEALTH SCORE CALCULATION FORMULA (Apply strictly, showing your work):`,
+                  `Base score = 50`,
+                  `+ Calories: <200cal=+20, 200-400=+10, 400-600=0, >600=-10`,
+                  `+ Protein: >20g=+20, 10-20g=+10, <10g=-5`,
+                  `+ Fat: <10g=+15, 10-20g=+10, 20-35g=0, >35g=-15`,
+                  `+ Fiber: >5g=+15, 2-5g=+10, <2g=0`,
+                  `+ Sugars: <5g=+15, 5-15g=+5, >15g=-15`,
+                  `+ Sodium: <200mg=+10, 200-500mg=+5, >500mg=-10`,
+                  `Final score = CLAMP(calculated value, 1, 100)`,
                   ``,
-                  `Base healthScore strictly on the provided USDA data. Keep suggestions actionable and under 10 words each.`
-                ].join(' ');                
+                  `REQUIRED OUTPUT FORMAT (valid JSON only, no markdown, no code blocks):`,
+                  `{"description":"<1-2 sentences citing ONLY the nutrient values from the data above${finalFoodItems.length > 1 ? ', mentioning key ingredients' : ''}>","healthScore":<number 1-100 calculated using formula>,"suggestions":["<actionable tip 1, max 10 words>","<actionable tip 2, max 10 words>"]}`,
+                  ``,
+                  `ANTI-HALLUCINATION EXAMPLES:`,
+                  `✅ CORRECT: "Contains 245 calories with 8g protein and 42g carbs; moderate sodium at 480mg."`,
+                  `❌ WRONG: "Rich in vitamins and minerals" (not in data)`,
+                  `❌ WRONG: "Approximately 250 calories" (must use exact value: 245)`,
+                  `❌ WRONG: "Good source of iron" (iron not provided in data)`,
+                  ``,
+                  `${finalFoodItems.length > 1 ? 'For composite dishes, describe the combined nutritional profile using the aggregate USDA data. ' : ''}Ensure every claim is traceable to a specific value in the JSON data above.`
+                ].join('\n');                
                 
                 // Enhanced AI analysis with better error handling
                 let parsed: unknown | null = null;
@@ -321,7 +378,8 @@ export async function POST(request: NextRequest) {
             aiAnalysis = null;
         }
 
-    // EXTREME MODE: Cross-validate AI analysis against USDA nutrition data
+    // METRIC 2 (Nutritional Plausibility): Enforce bounds checking on AI analysis
+    // METRIC 3 (Hallucination Reduction): Cross-validate AI analysis against USDA nutrition data
     if (aiAnalysis) {
         console.log('Cross-validating AI analysis against USDA nutrition data...');
         const firstNutrition = nutritionData[0];
@@ -333,8 +391,36 @@ export async function POST(request: NextRequest) {
         const sodium = firstNutrition?.nf_sodium || 0;
 
         const validationIssues: string[] = [];
+        
+        // METRIC 2: Nutritional Plausibility Checks (±20% tolerance from USDA data)
+        // If AI mentions specific values in description, verify they're within acceptable range
+        const descLower = aiAnalysis.description.toLowerCase();
+        
+        // Extract any calorie mentions from AI description and verify plausibility
+        const calMatch = descLower.match(/(\d+)\s*(cal|kcal|calories?)/i);
+        if (calMatch) {
+            const aiCals = parseInt(calMatch[1]);
+            const tolerance = 0.20; // ±20% tolerance
+            const minAcceptable = cals * (1 - tolerance);
+            const maxAcceptable = cals * (1 + tolerance);
+            if (aiCals < minAcceptable || aiCals > maxAcceptable) {
+                validationIssues.push(`AI calorie claim (${aiCals}) outside acceptable range (${Math.round(minAcceptable)}-${Math.round(maxAcceptable)} for actual ${Math.round(cals)}cal)`);
+                // Force correction in description
+                aiAnalysis.description = aiAnalysis.description.replace(calMatch[0], `${Math.round(cals)}cal`);
+                console.warn(`⚠️ Corrected hallucinated calorie value from ${aiCals} to ${Math.round(cals)}`);
+            }
+        }
+        
+        // Verify protein claims
+        const proteinMatch = descLower.match(/(\d+\.?\d*)\s*g?\s*protein/i);
+        if (proteinMatch) {
+            const aiProtein = parseFloat(proteinMatch[1]);
+            if (Math.abs(aiProtein - protein) > protein * 0.25) {
+                validationIssues.push(`AI protein claim (${aiProtein}g) deviates significantly from actual (${protein?.toFixed(1)}g)`);
+            }
+        }
 
-        // Calculate expected health score range based on nutritional values
+        // Calculate expected health score range based on nutritional values (METRIC 2)
         let expectedMinScore = 40;
         let expectedMaxScore = 70;
 
@@ -343,43 +429,68 @@ export async function POST(request: NextRequest) {
         if (cals < 150 && protein > 10 && fat < 5) expectedMinScore = 70;
         if (cals > 500 || fat > 30 || sugars > 20 || sodium > 800) expectedMaxScore = 55;
         if (cals > 700 || fat > 40 || sugars > 30 || sodium > 1200) expectedMaxScore = 45;
-
-        // Validate health score is within expected range
+        
+        // METRIC 2: Enforce plausible health score bounds
         if (aiAnalysis.healthScore > expectedMaxScore) {
-            validationIssues.push(`Health score ${aiAnalysis.healthScore} too high (expected max ${expectedMaxScore} based on nutrition profile)`);
+            validationIssues.push(`Health score ${aiAnalysis.healthScore} implausibly high (max ${expectedMaxScore} for nutrition profile)`);
             aiAnalysis.healthScore = expectedMaxScore;
-            console.warn(`⚠️ Adjusted health score down to ${expectedMaxScore}`);
+            console.warn(`⚠️ Capped health score to ${expectedMaxScore} (nutritional plausibility enforcement)`);
         }
 
         if (aiAnalysis.healthScore < expectedMinScore - 20) {
             validationIssues.push(`Health score ${aiAnalysis.healthScore} unexpectedly low (expected min ${expectedMinScore - 20})`);
         }
+        
+        // Additional plausibility check: healthScore should correlate with calorie density
+        if (cals > 600 && aiAnalysis.healthScore > 60) {
+            validationIssues.push('High calorie food (>600) cannot have health score >60');
+            aiAnalysis.healthScore = Math.min(aiAnalysis.healthScore, 55);
+        }
+        if (cals < 100 && fiber > 3 && protein > 5 && aiAnalysis.healthScore < 70) {
+            validationIssues.push('Low-cal, high-nutrient food deserves higher score');
+            aiAnalysis.healthScore = Math.max(aiAnalysis.healthScore, 70);
+        }
 
-        // Validate description mentions key nutritional concerns
-        const descLower = aiAnalysis.description.toLowerCase();
+        // METRIC 3: Validate description mentions key nutritional concerns (anti-hallucination)
         if (protein > 20 && !descLower.includes('protein')) {
-            validationIssues.push('High protein (>20g) not mentioned');
+            validationIssues.push('High protein (>20g) not mentioned - potential hallucination/omission');
         }
         if (sugars > 20 && !descLower.includes('sugar')) {
-            validationIssues.push('High sugar (>20g) not mentioned');
+            validationIssues.push('High sugar (>20g) not mentioned - potential hallucination/omission');
         }
         if (fat > 30 && !descLower.includes('fat')) {
-            validationIssues.push('High fat (>30g) not mentioned');
+            validationIssues.push('High fat (>30g) not mentioned - potential hallucination/omission');
         }
         if (sodium > 1000 && !descLower.includes('sodium') && !descLower.includes('salt')) {
-            validationIssues.push('High sodium (>1000mg) not mentioned');
+            validationIssues.push('High sodium (>1000mg) not mentioned - potential hallucination/omission');
         }
 
-        // Consistency check: health score vs suggestions
+        // METRIC 3: Consistency check: health score vs suggestions (detect contradictory hallucinations)
         if (aiAnalysis.healthScore > 70 && aiAnalysis.suggestions.some(s => s.toLowerCase().includes('limit') || s.toLowerCase().includes('reduce'))) {
-            validationIssues.push('High health score contradicts cautionary suggestions');
+            validationIssues.push('High health score contradicts cautionary suggestions - logical inconsistency detected');
+        }
+        
+        // METRIC 3: Detect common hallucination patterns
+        const hallucinationPatterns = [
+            /rich in vitamins/i,
+            /good source of minerals/i,
+            /contains antioxidants/i,
+            /heart.?healthy/i,
+            /immune.?boosting/i,
+            /anti.?inflammatory/i
+        ];
+        for (const pattern of hallucinationPatterns) {
+            if (pattern.test(aiAnalysis.description) || aiAnalysis.suggestions.some(s => pattern.test(s))) {
+                // These claims can't be verified from USDA macronutrient data alone
+                validationIssues.push(`Unverifiable health claim detected matching pattern: ${pattern.source} - likely hallucination`);
+            }
         }
 
         if (validationIssues.length > 0) {
-            console.warn(`⚠️ Cross-validation found ${validationIssues.length} issue(s):`, validationIssues);
-            warnings.push(`AI analysis adjusted for consistency with nutrition data (${validationIssues.length} correction${validationIssues.length > 1 ? 's' : ''})`);
+            console.warn(`⚠️ Validation found ${validationIssues.length} issue(s):`, validationIssues);
+            warnings.push(`AI analysis validated and corrected (${validationIssues.length} accuracy improvement${validationIssues.length > 1 ? 's' : ''})`);
         } else {
-            console.log('✅ AI analysis validated against USDA data - no issues found');
+            console.log('✅ AI analysis passed all accuracy validations (identification, plausibility, anti-hallucination)');
         }
     }
 

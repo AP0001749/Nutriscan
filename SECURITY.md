@@ -172,6 +172,9 @@ vercel logs [deployment-url]
 GOOGLE_CLIENT_ID=[your-google-client-id]
 GOOGLE_CLIENT_SECRET=[your-google-client-secret]
 NEXTAUTH_URL=https://[your-domain].vercel.app
+
+> IMPORTANT: Do NOT copy the literal placeholder value `https://[your-domain].vercel.app` into Vercel's environment variables.
+> Using the placeholder (including the square brackets) will cause runtime build errors such as `ERR_INVALID_URL` during prerender. Replace the placeholder with your actual deployment URL (for example `https://my-app.vercel.app`) before deploying.
 ```
 
 **Setup**:
