@@ -163,4 +163,76 @@ export async function callGeminiWithRetry(prompt: string, opts: GeminiOptions = 
   }
 }
 
+// Vision-enabled Gemini call with image + text prompt
+export async function callGeminiVision(prompt: string, imageBase64: string, opts: GeminiOptions = {}) {
+  const apiKey = process.env.GEMINI_API_KEY_SERVER || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) throw new Error('Missing GEMINI API key. Set GEMINI_API_KEY_SERVER for server-side usage.');
+
+  const rawModel = (process.env.GEMINI_MODEL || 'gemini-1.5-flash').replace(/^models\//, '');
+  const aliasMap: Record<string, string> = {
+    'gemini-flash': 'gemini-2.0-flash-exp',
+    'gemini-2.0-flash': 'gemini-2.0-flash-exp',
+    'gemini-2.0-flash-exp': 'gemini-2.0-flash-exp',
+    'gemini-2.5-flash': 'gemini-2.0-flash-exp',
+    'gemini-1.5-flash': 'gemini-1.5-flash',
+    'gemini-1.5-pro': 'gemini-1.5-pro',
+  };
+  const model = aliasMap[rawModel] || rawModel;
+  const retries = opts.retries ?? 2;
+  const temperature = opts.temperature ?? 0.2;
+  const maxTokens = opts.maxTokens ?? 50;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      // Remove data:image/jpeg;base64, prefix if present
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      
+      const body = {
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
+          ]
+        }],
+        generationConfig: { temperature, maxOutputTokens: maxTokens }
+      };
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const looksLikeOAuth = typeof apiKey === 'string' && apiKey.startsWith('ya29.');
+      
+      const url = buildEndpoint('v1beta', model);
+      let fetchUrl = url;
+      if (looksLikeOAuth) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        fetchUrl = `${url}?key=${encodeURIComponent(apiKey)}`;
+      }
+
+      console.log('🖼️ Calling Gemini Vision endpoint:', sanitizeUrl(fetchUrl));
+      const res = await fetch(fetchUrl, { method: 'POST', headers, body: JSON.stringify(body) });
+      const text = await res.text();
+      
+      if (!res.ok) {
+        console.error('Gemini Vision error', { status: res.status, bodySnippet: text?.slice(0, 200) });
+        throw new Error(`Gemini Vision API error ${res.status}: ${text}`);
+      }
+
+      const json = JSON.parse(text);
+      const c0 = json?.candidates?.[0];
+      const parts = c0?.content?.parts;
+      if (Array.isArray(parts)) {
+        const firstText = parts.find(p => p?.text)?.text;
+        if (firstText) return firstText;
+      }
+      return text;
+
+    } catch (err) {
+      console.warn(`Gemini Vision call attempt ${attempt + 1}/${retries + 1} failed:`, err);
+      if (attempt < retries) await sleep(500 * (attempt + 1));
+      else throw err as Error;
+    }
+  }
+}
+
 export default callGeminiWithRetry;

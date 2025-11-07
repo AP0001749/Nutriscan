@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import callGeminiWithRetry from '@/lib/gemini-client';
+import callGeminiWithRetry, { callGeminiVision } from '@/lib/gemini-client';
+import { callHuggingFaceVision } from '@/lib/huggingface-client';
 import { normalizeDishName } from '@/lib/dish-synonyms';
 import { parseModelJson, validateAIAnalysis, coerceAIAnalysis } from '@/lib/ai-output';
 import { NutritionInfo } from '@/lib/types';
@@ -295,6 +296,31 @@ export async function POST(request: NextRequest) {
     const aiConcepts = await getAIConcepts(imageBuffer);
     if (!aiConcepts || aiConcepts.length === 0) {
         return NextResponse.json({ error: 'No food items detected in image', details: 'Vision model returned no detectable concepts.' }, { status: 422 });
+    }
+    
+    // ENSEMBLE: Add Hugging Face vision as secondary free vision source
+    let hfCaption = '';
+    try {
+        if (process.env.HUGGINGFACE_API_KEY) {
+            console.log('🤗 Hugging Face Vision: Adding secondary vision analysis...');
+            const imageBase64 = imageBuffer.toString('base64');
+            hfCaption = await callHuggingFaceVision(imageBase64, { retries: 1 });
+            console.log(`✅ Hugging Face caption: "${hfCaption}"`);
+            
+            // Extract food-related keywords from caption to boost concepts
+            const captionWords = hfCaption.toLowerCase().split(/\s+/)
+                .filter(w => w.length > 3 && !['with', 'food', 'photo', 'image', 'picture', 'plate', 'bowl', 'table'].includes(w));
+            
+            // Boost Clarifai concepts that match HF caption
+            aiConcepts.forEach(concept => {
+                if (captionWords.some(word => word.includes(concept.name.toLowerCase()) || concept.name.toLowerCase().includes(word))) {
+                    concept.confidence = Math.min(concept.confidence * 1.2, 0.99); // 20% boost, capped at 99%
+                    console.log(`📈 Boosted "${concept.name}" confidence due to HF match`);
+                }
+            });
+        }
+    } catch (hfErr) {
+        console.warn('Hugging Face vision failed (non-critical):', hfErr);
     }
     
     // Extract top 5 high-confidence concepts (≥60% threshold for better coverage)
@@ -606,28 +632,41 @@ export async function POST(request: NextRequest) {
 
     let aiAnalysis;
     try {
-                // CRITICAL: Ask Gemini to identify what it ACTUALLY sees (e.g., "Coke can") FIRST
-                // Then use that identification to re-fetch nutrition if needed
+                // CRITICAL: Ask Gemini Vision to identify what it ACTUALLY sees in the image
+                // This bypasses potentially incorrect vision concepts from Clarifai
                 const identificationPrompt = [
-                  `You are a food identification expert. Look at these vision concepts and identify what food/drink/item this ACTUALLY is.`,
-                  `Vision concepts detected: ${conceptNames.join(', ')}`,
-                  `Current best guess: "${identifiedDishName}"`,
+                  `You are an expert food/beverage identifier. Analyze this image and identify EXACTLY what you see.`,
                   ``,
-                  `TASK: What is this item? Be SPECIFIC. Include brand names, packaging types (can/bottle), and portion if visible.`,
+                  `Be SPECIFIC:`,
+                  `- Include brand names if visible (Coca-Cola, Pepsi, Red Bull, etc.)`,
+                  `- Include packaging type (can, bottle, box, etc.)`,
+                  `- Include approximate size/volume if visible on packaging`,
+                  `- If it's a dish, name the specific dish (e.g., "Spaghetti Bolognese" not just "pasta")`,
                   ``,
                   `EXAMPLES:`,
-                  `Vision: ["can", "soda", "cola"] → "Coca-Cola 12 oz can"`,
-                  `Vision: ["bottle", "water", "plastic"] → "Bottled Water 16.9 oz"`,
-                  `Vision: ["can", "energy drink", "red bull"] → "Red Bull Energy Drink 8.4 oz"`,
-                  `Vision: ["apple", "fruit"] → "Apple"`,
-                  `Vision: ["pasta", "meat", "sauce"] → "Spaghetti Bolognese"`,
+                  `- Coca-Cola 12 oz can`,
+                  `- Red Bull Energy Drink 8.4 oz`,
+                  `- Bottled Water 16.9 oz`,
+                  `- Apple (fresh fruit)`,
+                  `- Cheeseburger with fries`,
                   ``,
-                  `Return ONLY the item name with brand/size if applicable. No explanation.`
-                ].join('\n');
+                  `Context from vision APIs:`,
+                  `- Clarifai concepts: ${conceptNames.slice(0, 5).join(', ')}`,
+                  hfCaption ? `- Hugging Face description: "${hfCaption}"` : '',
+                  `- Current synthesis: "${identifiedDishName}"`,
+                  ``,
+                  `Return ONLY the item name with brand/size. No explanation.`
+                ].filter(Boolean).join('\n');
 
                 let refinedDishName = identifiedDishName;
                 try {
-                    const idRaw = await callGeminiWithRetry(identificationPrompt, { maxTokens: 50, temperature: 0.1, retries: 2 });
+                    console.log('🖼️ Using Gemini Vision to identify item directly from image...');
+                    const imageBase64 = imageBuffer.toString('base64');
+                    const idRaw = await callGeminiVision(identificationPrompt, imageBase64, { 
+                        maxTokens: 50, 
+                        temperature: 0.1, 
+                        retries: 2 
+                    });
                     if (idRaw) {
                         const cleaned = idRaw.trim().replace(/^["']|["']$/g, '').replace(/\.$/, '');
                         if (cleaned && cleaned.length > 2 && cleaned.length < 100) {
