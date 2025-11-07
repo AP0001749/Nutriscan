@@ -1,5 +1,7 @@
 // Minimal Gemini (Google Generative) client wrapper.
 // Reads GEMINI_API_KEY and GEMINI_MODEL from environment.
+import { checkGeminiQuota, incrementGeminiQuota } from './quota-tracker';
+
 export type GeminiOptions = { maxTokens?: number; temperature?: number; retries?: number; responseMimeType?: string };
 
 async function sleep(ms: number) { return new Promise(res => setTimeout(res, ms)); }
@@ -61,6 +63,13 @@ export async function callGeminiWithRetry(prompt: string, opts: GeminiOptions = 
   }
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    // Check quota before making API call
+    const quotaCheck = checkGeminiQuota();
+    if (!quotaCheck.allowed && attempt === 0) {
+      console.warn(`⚠️ Gemini quota exceeded (${quotaCheck.remaining}/min remaining). Waiting...`);
+      await sleep(2000); // Brief delay before retry
+    }
+    
     try {
       const body: Record<string, unknown> = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -118,6 +127,9 @@ export async function callGeminiWithRetry(prompt: string, opts: GeminiOptions = 
             }
             throw new Error(`Gemini API error ${res.status}: ${text}`);
           }
+
+          // Increment quota on successful call
+          incrementGeminiQuota();
 
           // Parse JSON and extract text from multiple possible shapes
           try {
@@ -183,6 +195,13 @@ export async function callGeminiVision(prompt: string, imageBase64: string, opts
   const maxTokens = opts.maxTokens ?? 50;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    // Check quota before making API call
+    const quotaCheck = checkGeminiQuota();
+    if (!quotaCheck.allowed && attempt === 0) {
+      console.warn(`⚠️ Gemini quota exceeded (${quotaCheck.remaining}/min remaining). Waiting...`);
+      await sleep(2000);
+    }
+    
     try {
       // Remove data:image/jpeg;base64, prefix if present
       const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -217,6 +236,9 @@ export async function callGeminiVision(prompt: string, imageBase64: string, opts
         console.error('Gemini Vision error', { status: res.status, bodySnippet: text?.slice(0, 200) });
         throw new Error(`Gemini Vision API error ${res.status}: ${text}`);
       }
+
+      // Increment quota on successful call
+      incrementGeminiQuota();
 
       const json = JSON.parse(text);
       const c0 = json?.candidates?.[0];

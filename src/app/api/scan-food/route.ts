@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import callGeminiWithRetry, { callGeminiVision } from '@/lib/gemini-client';
 import { callHuggingFaceVision } from '@/lib/huggingface-client';
+import { checkClarifaiQuota, incrementClarifaiQuota, checkGeminiQuota, incrementGeminiQuota } from '@/lib/quota-tracker';
 import { normalizeDishName } from '@/lib/dish-synonyms';
 import { parseModelJson, validateAIAnalysis, coerceAIAnalysis } from '@/lib/ai-output';
 import { NutritionInfo } from '@/lib/types';
@@ -260,14 +261,32 @@ async function estimateRecipeComposition(dishName: string, conceptNames: string[
 
 async function getAIConcepts(imageBuffer: Buffer): Promise<{name: string, confidence: number}[]> {
     const CLARIFAI_API_KEY = process.env.CLARIFAI_API_KEY;
-    if (!CLARIFAI_API_KEY) { return []; }
+    if (!CLARIFAI_API_KEY) { 
+        console.warn('⚠️ Clarifai API key not configured, skipping concept extraction');
+        return []; 
+    }
+    
+    // Check quota before making API call
+    const quotaCheck = checkClarifaiQuota();
+    if (!quotaCheck.allowed) {
+        console.warn(`⚠️ Clarifai quota exceeded (${quotaCheck.remaining} remaining). Reset: ${new Date(quotaCheck.resetDate).toLocaleDateString()}`);
+        return [];
+    }
+    
     try {
         const response = await fetch('https://api.clarifai.com/v2/models/food-item-recognition/versions/1d5fd481e0cf4826aa72ec3ff049e044/outputs', {
             method: 'POST',
             headers: { 'Authorization': `Key ${CLARIFAI_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ inputs: [{ data: { image: { base64: imageBuffer.toString('base64') } } }] })
         });
-        if (!response.ok) return [];
+        if (!response.ok) {
+            console.error(`Clarifai API error: ${response.status}`);
+            return [];
+        }
+        
+        // Increment quota on successful call
+        incrementClarifaiQuota();
+        
         const data = await response.json() as ClarifaiOutput;
         return data.outputs?.[0]?.data?.concepts?.map((c: ClarifaiConcept) => ({ name: c.name, confidence: c.value })) || [];
     } catch (error) {
@@ -293,15 +312,45 @@ export async function POST(request: NextRequest) {
 
     // --- PRAETORIAN FUSION ENGINE: Multi-Concept Primary Intelligence ---
     console.log('🔱 Fusion Engine: Step 1 - Multi-Concept Extraction from Vision API...');
-    const aiConcepts = await getAIConcepts(imageBuffer);
+    let aiConcepts = await getAIConcepts(imageBuffer);
+    
+    // FALLBACK: If Clarifai is unavailable/quota exceeded, use HuggingFace as primary
+    if (!aiConcepts || aiConcepts.length === 0) {
+        console.warn('⚠️ Clarifai unavailable, using Hugging Face as primary vision source...');
+        try {
+            if (process.env.HUGGINGFACE_API_KEY) {
+                const imageBase64 = imageBuffer.toString('base64');
+                const hfCaption = await callHuggingFaceVision(imageBase64, { retries: 2 });
+                console.log(`✅ Hugging Face caption (primary): "${hfCaption}"`);
+                
+                // Convert caption to pseudo-concepts
+                const words = hfCaption.toLowerCase().split(/\s+/)
+                    .filter(w => w.length > 3 && !['with', 'food', 'photo', 'image', 'picture', 'plate', 'bowl', 'table', 'this'].includes(w));
+                
+                aiConcepts = words.slice(0, 5).map((word, i) => ({
+                    name: word,
+                    confidence: Math.max(0.7 - (i * 0.1), 0.3) // Decreasing confidence
+                }));
+                
+                warnings.push('Using Hugging Face vision (Clarifai quota exceeded)');
+            }
+        } catch (hfErr) {
+            console.error('Hugging Face fallback failed:', hfErr);
+            return NextResponse.json({ 
+                error: 'No food items detected in image', 
+                details: 'All vision models failed or quota exceeded.' 
+            }, { status: 422 });
+        }
+    }
+    
     if (!aiConcepts || aiConcepts.length === 0) {
         return NextResponse.json({ error: 'No food items detected in image', details: 'Vision model returned no detectable concepts.' }, { status: 422 });
     }
     
-    // ENSEMBLE: Add Hugging Face vision as secondary free vision source
+    // ENSEMBLE: Add Hugging Face vision as secondary free vision source (if not already used as primary)
     let hfCaption = '';
     try {
-        if (process.env.HUGGINGFACE_API_KEY) {
+        if (process.env.HUGGINGFACE_API_KEY && aiConcepts.length > 0 && aiConcepts[0].confidence > 0.5) {
             console.log('🤗 Hugging Face Vision: Adding secondary vision analysis...');
             const imageBase64 = imageBuffer.toString('base64');
             hfCaption = await callHuggingFaceVision(imageBase64, { retries: 1 });
