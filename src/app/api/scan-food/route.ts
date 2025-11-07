@@ -606,23 +606,78 @@ export async function POST(request: NextRequest) {
 
     let aiAnalysis;
     try {
-                                const conciseNutrition = (() => {
-                                        try {
-                                                const n = nutritionData[0];
-                                                return {
-                                                    name: n.food_name,
-                                                    serving: { qty: n.serving_qty, unit: n.serving_unit, grams: n.serving_weight_grams },
-                                                    macros: {
-                                                        calories: n.nf_calories,
-                                                        protein: n.nf_protein,
-                                                        carbs: n.nf_total_carbohydrate,
-                                                        fat: n.nf_total_fat,
-                                                        fiber: n.nf_dietary_fiber,
-                                                        sugars: n.nf_sugars,
-                                                    }
-                                                };
-                                        } catch { return nutritionData[0]; }
-                                })();
+                // CRITICAL: Ask Gemini to identify what it ACTUALLY sees (e.g., "Coke can") FIRST
+                // Then use that identification to re-fetch nutrition if needed
+                const identificationPrompt = [
+                  `You are a food identification expert. Look at these vision concepts and identify what food/drink/item this ACTUALLY is.`,
+                  `Vision concepts detected: ${conceptNames.join(', ')}`,
+                  `Current best guess: "${identifiedDishName}"`,
+                  ``,
+                  `TASK: What is this item? Be SPECIFIC. Include brand names, packaging types (can/bottle), and portion if visible.`,
+                  ``,
+                  `EXAMPLES:`,
+                  `Vision: ["can", "soda", "cola"] → "Coca-Cola 12 oz can"`,
+                  `Vision: ["bottle", "water", "plastic"] → "Bottled Water 16.9 oz"`,
+                  `Vision: ["can", "energy drink", "red bull"] → "Red Bull Energy Drink 8.4 oz"`,
+                  `Vision: ["apple", "fruit"] → "Apple"`,
+                  `Vision: ["pasta", "meat", "sauce"] → "Spaghetti Bolognese"`,
+                  ``,
+                  `Return ONLY the item name with brand/size if applicable. No explanation.`
+                ].join('\n');
+
+                let refinedDishName = identifiedDishName;
+                try {
+                    const idRaw = await callGeminiWithRetry(identificationPrompt, { maxTokens: 50, temperature: 0.1, retries: 2 });
+                    if (idRaw) {
+                        const cleaned = idRaw.trim().replace(/^["']|["']$/g, '').replace(/\.$/, '');
+                        if (cleaned && cleaned.length > 2 && cleaned.length < 100) {
+                            refinedDishName = cleaned;
+                            if (refinedDishName.toLowerCase() !== identifiedDishName.toLowerCase()) {
+                                console.log(`🔍 AI OVERRIDE: Vision said "${identifiedDishName}" but Gemini identified "${refinedDishName}"`);
+                                warnings.push(`AI identified as: "${refinedDishName}"`);
+                                
+                                // CRITICAL: Re-fetch nutrition with the AI-identified name
+                                console.log(`🔄 Re-fetching nutrition for AI-identified item: "${refinedDishName}"`);
+                                let aiNutrition = await getNutritionData(refinedDishName);
+                                if (!aiNutrition) aiNutrition = await getNutritionDataFromNutritionix(refinedDishName);
+                                
+                                if (aiNutrition) {
+                                    // Replace nutrition data with AI-identified item's nutrition
+                                    nutritionData.length = 0;
+                                    nutritionData.push(aiNutrition);
+                                    nutritionSources.length = 0;
+                                    nutritionSources.push(aiNutrition.brand_name ? 'Nutritionix (AI-identified)' : 'USDA (AI-identified)');
+                                    identifiedDishName = refinedDishName;
+                                    console.log(`✅ Updated nutrition to AI-identified item: "${refinedDishName}"`);
+                                } else {
+                                    console.warn(`⚠️ Could not find nutrition for AI-identified "${refinedDishName}", keeping original`);
+                                }
+                            }
+                        }
+                    }
+                } catch (idErr) {
+                    console.warn('AI identification override failed, using fusion result:', idErr);
+                }
+
+                // Refresh concise nutrition after potential update
+                const conciseNutrition = (() => {
+                    try {
+                        const n = nutritionData[0];
+                        return {
+                            name: n.food_name,
+                            serving: { qty: n.serving_qty, unit: n.serving_unit, grams: n.serving_weight_grams },
+                            macros: {
+                                calories: n.nf_calories,
+                                protein: n.nf_protein,
+                                carbs: n.nf_total_carbohydrate,
+                                fat: n.nf_total_fat,
+                                fiber: n.nf_dietary_fiber,
+                                sugars: n.nf_sugars,
+                            }
+                        };
+                    } catch { return nutritionData[0]; }
+                })();
+
                 // METRIC 3 (Hallucination Reduction): Anti-hallucination prompt with strict fact-checking directives
                 const analysisPrompt = [
                   `You are a professional nutritionist analyzing food using ONLY the provided USDA nutrition data. CRITICAL RULES:`,
