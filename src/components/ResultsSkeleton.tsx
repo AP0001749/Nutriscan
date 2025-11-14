@@ -6,18 +6,18 @@ import { Gauge, ListChecks } from 'lucide-react';
 export default function ResultsSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="p-6">
           <div className="flex items-center gap-6">
-            <div className="w-36 h-36 rounded-full bg-muted/20 flex items-center justify-center">
+            <div className="w-36 h-36 rounded-full bg-muted/20 flex items-center justify-center shrink-0">
               <Skeleton circle={true} height={80} width={80} />
             </div>
-            <div className="flex-1">
-              <Skeleton width={240} height={28} />
-              <Skeleton width={380} height={16} className="mt-3" />
+            <div className="flex-1 min-w-0">
+              <Skeleton width="60%" height={28} />
+              <Skeleton width="90%" height={16} className="mt-3" />
             </div>
-            <div className="w-48">
-              <Skeleton width={140} height={32} />
+            <div className="w-48 shrink-0 hidden sm:block">
+              <Skeleton width="80%" height={32} />
               <div className="mt-3 flex gap-2">
                 <Skeleton width={80} height={32} />
                 <Skeleton width={80} height={32} />
@@ -28,7 +28,7 @@ export default function ResultsSkeleton() {
         <CardContent className="p-6 space-y-6">
           <div>
             <h4 className="text-sm text-muted-foreground mb-3 flex items-center"><ListChecks className="h-4 w-4 mr-2"/>Detected Items</h4>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Skeleton width={100} height={28} />
               <Skeleton width={80} height={28} />
               <Skeleton width={120} height={28} />
@@ -48,20 +48,20 @@ export default function ResultsSkeleton() {
           </div>
 
           <div className="border-t pt-6">
-            <div className="flex gap-6">
-              <div className="w-1/2">
-                <Skeleton width={160} height={20} />
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="flex-1 min-w-0">
+                <Skeleton width="60%" height={20} />
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <Skeleton height={80} />
-                  <Skeleton height={80} />
+                  <Skeleton height={80} containerClassName="w-full" />
+                  <Skeleton height={80} containerClassName="w-full" />
                 </div>
               </div>
-              <div className="w-1/2">
-                <Skeleton width={120} height={20} />
+              <div className="flex-1 min-w-0">
+                <Skeleton width="50%" height={20} />
                 <div className="mt-3 space-y-3">
-                  <Skeleton height={20} />
-                  <Skeleton height={20} />
-                  <Skeleton height={20} />
+                  <Skeleton height={20} containerClassName="w-full" />
+                  <Skeleton height={20} containerClassName="w-full" />
+                  <Skeleton height={20} containerClassName="w-full" />
                 </div>
               </div>
             </div>

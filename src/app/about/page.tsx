@@ -6,8 +6,8 @@ const features = [
   {
     icon: BotMessageSquare,
     title: 'Multi-Ingredient AI Recognition',
-  description: 'Our Gemini Flash core deconstructs entire meals into their individual components for unparalleled analytical depth.',
-  tech: 'Gemini Flash'
+  description: 'Our Claude AI core deconstructs entire meals into their individual components for unparalleled analytical depth.',
+  tech: 'Anthropic Claude'
   },
   {
     icon: Database,

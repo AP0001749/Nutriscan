@@ -138,50 +138,68 @@ export default function FoodScanner() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-8">
       {!results && (
-        <Card>
-          <CardHeader className="items-center text-center">
-            <div className="p-3 rounded-full bg-primary/10 border border-primary/20 mb-2">
-                <Sparkles className="h-8 w-8 text-primary" />
+        <Card className="glass-card border-0 overflow-hidden">
+          <CardHeader className="items-center text-center space-y-4 p-8">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/20 shimmer pulse-glow">
+                <Sparkles className="h-10 w-10 text-emerald-400" />
             </div>
-            <CardTitle className="text-2xl">AI Vision Engine</CardTitle>
-            <CardDescription>
-              Take a photo or upload an image for a complete ingredient and nutritional breakdown.
+            <CardTitle className="text-3xl font-bold">
+              <span className="text-gradient">AI Vision Engine</span>
+            </CardTitle>
+            <CardDescription className="text-base text-muted-foreground max-w-lg">
+              Capture or upload your meal for instant AI-powered nutritional analysis with complete ingredient breakdown.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <CardContent className="space-y-8 p-8">
+            {/* Action Buttons - Premium Style */}
+            <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 onClick={handleActionClick} 
-                className="flex-1 shadow-lg shadow-primary/30"
+                className="w-full sm:flex-1 btn-premium text-base py-6"
                 size="lg"
                 disabled={isScanning}
               >
                 <Camera className="mr-2 h-5 w-5" />
                 Take Photo
               </Button>
-              <div className="flex items-center gap-3">
-                <Button 
-                  onClick={handleActionClick} 
-                  variant="secondary" 
-                  size="lg"
-                  className=""
-                  disabled={isScanning}
-                >
-                  <Upload className="mr-2 h-5 w-5" />
-                  Upload Image
-                </Button>
-                <div
-                  onDragOver={handleDragOver}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`w-12 h-12 rounded-md flex items-center justify-center border-2 border-dashed transition-all duration-150 ${isDragging ? 'border-accent bg-accent/6 scale-105 shadow-md' : 'border-border bg-muted/5 hover:scale-102 hover:shadow-sm'}`}
-                  title="Drop image here"
-                >
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                </div>
+              <Button 
+                onClick={handleActionClick} 
+                variant="outline" 
+                size="lg"
+                className="w-full sm:flex-1 glass-card border-emerald-500/30 hover:border-emerald-500/50 text-base py-6"
+                disabled={isScanning}
+              >
+                <Upload className="mr-2 h-5 w-5" />
+                Upload Image
+              </Button>
+            </div>
+
+            {/* Drag & Drop Zone - Premium Glassmorphism */}
+            <div
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`w-full p-12 rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center gap-4 cursor-pointer ${
+                isDragging 
+                  ? 'border-emerald-500 bg-emerald-500/10 scale-[1.02] shadow-lg shadow-emerald-500/20' 
+                  : 'glass-card border-emerald-500/20 hover:border-emerald-500/40 hover:bg-white/5'
+              }`}
+            >
+              <div className={`p-4 rounded-full transition-colors ${
+                isDragging ? 'bg-emerald-500/20' : 'bg-white/5'
+              }`}>
+                <Upload className={`h-10 w-10 ${isDragging ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold text-foreground mb-1">
+                  {isDragging ? 'Drop your image here' : 'Drag & drop your meal photo'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Supports JPG, PNG, WEBP up to 10MB
+                </p>
               </div>
             </div>
 
@@ -194,15 +212,20 @@ export default function FoodScanner() {
               className="hidden"
             />
 
+            {/* Image Preview - Enhanced */}
             {selectedImage && (
-              <div className="mt-6 pt-6 border-t border-border">
-                <p className="text-sm font-medium text-muted-foreground text-center mb-4">Image Preview:</p>
-                <div className="relative w-full max-w-md mx-auto aspect-video rounded-xl overflow-hidden border-2 border-dashed border-border">
+              <div className="mt-8 pt-8 border-t border-emerald-500/20 space-y-4 animate-in fade-in duration-500">
+                <p className="text-sm font-semibold text-emerald-400 text-center flex items-center justify-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Image Preview
+                </p>
+                <div className="relative w-full max-w-2xl mx-auto aspect-video rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-lg shadow-emerald-500/10 glass-card">
                   <Image 
                     src={selectedImage} 
                     alt="Selected food" 
                     fill
                     style={{ objectFit: 'contain' }}
+                    className="p-2"
                   />
                 </div>
               </div>
@@ -214,14 +237,18 @@ export default function FoodScanner() {
       {isScanning && <ResultsSkeleton />}
 
       {error && !isScanning && (
-        <Card className="border-destructive bg-destructive/10 text-destructive-foreground">
-          <CardContent className="p-6 flex items-center gap-4">
-            <AlertCircle className="h-8 w-8" />
-            <div>
-              <p className="font-semibold text-lg">Scan Failed</p>
-              <span className="text-sm">{error}</span>
+        <Card className="glass-card border-red-500/30 bg-red-500/10 animate-in fade-in zoom-in-95 duration-300">
+          <CardContent className="p-8 flex flex-col sm:flex-row items-center gap-6">
+            <div className="p-4 rounded-full bg-red-500/20 border border-red-500/30">
+              <AlertCircle className="h-8 w-8 text-red-400" />
             </div>
-             <Button onClick={handleScanAnother} variant="destructive" size="sm" className="ml-auto">Try Again</Button>
+            <div className="flex-1 text-center sm:text-left">
+              <p className="font-bold text-xl text-red-400 mb-2">Scan Failed</p>
+              <span className="text-sm text-muted-foreground">{error}</span>
+            </div>
+            <Button onClick={handleScanAnother} variant="destructive" size="lg" className="btn-premium">
+              Try Again
+            </Button>
           </CardContent>
         </Card>
       )}

@@ -21,17 +21,20 @@ export default function Navigation() {
   const isSignedIn = !!session;
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-lg">
+    <nav className="sticky top-0 z-50 w-full border-b border-emerald-500/10 glass backdrop-blur-xl">
       <div className="container flex h-20 items-center">
-        <Link href="/" className="mr-6 flex items-center space-x-3">
-          <div className="rounded-lg bg-primary/10 p-2 border border-primary/20 flex items-center justify-center">
-            <ScanLine className="h-6 w-6 text-primary" />
+        {/* Logo - Premium Design */}
+        <Link href="/" className="mr-8 flex items-center space-x-3 group">
+          <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 p-2.5 border border-emerald-500/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-emerald-500/30">
+            <ScanLine className="h-6 w-6 text-emerald-400" />
           </div>
-          <span className="font-bold text-lg inline-block text-gradient">
+          <span className="font-black text-xl text-gradient-premium">
             NutriScan
           </span>
         </Link>
-        <div className="flex flex-1 items-center justify-end space-x-3">
+
+        {/* Navigation Links - Glassmorphism */}
+        <div className="flex flex-1 items-center justify-end space-x-2">
           {navigation.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -39,11 +42,10 @@ export default function Navigation() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background btn-interactive',
+                  'flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-background',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                    // --- CRITICAL FIX: Replaced '-' with ':' ---
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30 scale-105'
+                    : 'text-muted-foreground hover:text-foreground glass-card hover:scale-105 border border-transparent hover:border-emerald-500/30',
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -51,33 +53,35 @@ export default function Navigation() {
               </Link>
             )
           })}
-           <div className="pl-4 flex items-center space-x-2">
-             {!isSignedIn ? (
-               <Button
-                 onClick={() => signIn()}
-                 variant="outline"
-                 size="sm"
-                 className="btn-interactive"
-               >
-                 Sign in
-               </Button>
-             ) : (
-               <div className="flex items-center space-x-2">
-                 <span className="text-sm text-muted-foreground hidden sm:inline-block">
-                   {session?.user?.name || session?.user?.email}
-                 </span>
-                 <Button
-                   onClick={() => signOut()}
-                   variant="ghost"
-                   size="sm"
-                   className="btn-interactive"
-                 >
-                   <LogOut className="h-4 w-4" />
-                   <span className="ml-2 hidden sm:inline-block">Sign out</span>
-                 </Button>
-               </div>
-             )}
-           </div>
+
+          {/* Auth Section - Premium Style */}
+          <div className="pl-4 ml-4 border-l border-emerald-500/20 flex items-center space-x-3">
+            {!isSignedIn ? (
+              <Button
+                onClick={() => signIn()}
+                variant="outline"
+                size="sm"
+                className="glass-card border-emerald-500/30 hover:border-emerald-500/50 font-semibold hover:scale-105 transition-all duration-300"
+              >
+                Sign in
+              </Button>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-muted-foreground font-medium hidden sm:inline-block glass-card px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                  {session?.user?.name || session?.user?.email}
+                </span>
+                <Button
+                  onClick={() => signOut()}
+                  variant="ghost"
+                  size="sm"
+                  className="glass-card hover:bg-red-500/10 hover:border-red-500/30 border border-transparent font-semibold hover:scale-105 transition-all duration-300"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="ml-2 hidden sm:inline-block">Sign out</span>
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>

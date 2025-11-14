@@ -8,34 +8,28 @@ interface QuotaUsage {
 
 interface QuotaLimits {
     clarifai: { limit: number; period: 'month' };
-    gemini: { limit: number; period: 'minute' };
+    claude: { limit: number; period: 'month' }; // Monthly request cap for safety
 }
 
 const QUOTA_LIMITS: QuotaLimits = {
-    clarifai: { limit: 1000, period: 'month' },
-    gemini: { limit: 15, period: 'minute' }
+    clarifai: { limit: 1000, period: 'month' }, // Free tier: 1000 ops/month
+    claude: { limit: 10000, period: 'month' }   // Safety cap: 10k requests/month
 };
 
 // In-memory quota tracking (resets on server restart)
 // For production, use Redis or database persistence
 const quotaUsage: {
     clarifai: QuotaUsage;
-    gemini: QuotaUsage[];
+    claude: QuotaUsage;
 } = {
     clarifai: { count: 0, resetDate: getNextMonthReset() },
-    gemini: [] // Array of timestamps for rate limiting
+    claude: { count: 0, resetDate: getNextMonthReset() }
 };
 
 function getNextMonthReset(): string {
     const now = new Date();
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     return nextMonth.toISOString();
-}
-
-function getNextMinuteReset(): string {
-    const now = new Date();
-    const nextMinute = new Date(now.getTime() + 60000);
-    return nextMinute.toISOString();
 }
 
 export function checkClarifaiQuota(): { allowed: boolean; remaining: number; resetDate: string } {
@@ -59,36 +53,45 @@ export function checkClarifaiQuota(): { allowed: boolean; remaining: number; res
 
 export function incrementClarifaiQuota(): void {
     quotaUsage.clarifai.count++;
-    console.log(`📊 Clarifai quota: ${quotaUsage.clarifai.count}/${QUOTA_LIMITS.clarifai.limit} used this month`);
+    // Removed excessive quota logging
 }
 
-export function checkGeminiQuota(): { allowed: boolean; remaining: number; resetDate: string } {
+export function checkClaudeQuota(): { allowed: boolean; remaining: number; resetDate: string } {
     const now = new Date();
-    const oneMinuteAgo = new Date(now.getTime() - 60000);
+    const resetDate = new Date(quotaUsage.claude.resetDate);
     
-    // Remove timestamps older than 1 minute
-    quotaUsage.gemini = quotaUsage.gemini.filter(usage => new Date(usage.resetDate) > oneMinuteAgo);
+    // Reset counter if we've passed the reset date
+    if (now >= resetDate) {
+        quotaUsage.claude = { count: 0, resetDate: getNextMonthReset() };
+    }
     
-    const remaining = Math.max(0, QUOTA_LIMITS.gemini.limit - quotaUsage.gemini.length);
+    const remaining = Math.max(0, QUOTA_LIMITS.claude.limit - quotaUsage.claude.count);
     const allowed = remaining > 0;
     
     return {
         allowed,
         remaining,
-        resetDate: quotaUsage.gemini.length > 0 
-            ? quotaUsage.gemini[0].resetDate 
-            : getNextMinuteReset()
+        resetDate: quotaUsage.claude.resetDate
     };
 }
 
+export function incrementClaudeQuota(): void {
+    quotaUsage.claude.count++;
+}
+
+// DEPRECATED: Legacy quota functions kept for backward compatibility only
+export function checkGeminiQuota(): { allowed: boolean; remaining: number; resetDate: string } {
+    // Silent deprecation - returns permissive values
+    return { allowed: true, remaining: 999, resetDate: new Date().toISOString() };
+}
+
 export function incrementGeminiQuota(): void {
-    quotaUsage.gemini.push({ count: 1, resetDate: getNextMinuteReset() });
-    console.log(`📊 Gemini quota: ${quotaUsage.gemini.length}/${QUOTA_LIMITS.gemini.limit} used this minute`);
+    // No-op: deprecated, silent
 }
 
 export function getQuotaStatus() {
     const clarifai = checkClarifaiQuota();
-    const gemini = checkGeminiQuota();
+    const claude = checkClaudeQuota();
     
     return {
         clarifai: {
@@ -98,12 +101,13 @@ export function getQuotaStatus() {
             resetDate: clarifai.resetDate,
             allowed: clarifai.allowed
         },
-        gemini: {
-            used: quotaUsage.gemini.length,
-            limit: QUOTA_LIMITS.gemini.limit,
-            remaining: gemini.remaining,
-            resetDate: gemini.resetDate,
-            allowed: gemini.allowed
+        claude: {
+            used: quotaUsage.claude.count,
+            limit: QUOTA_LIMITS.claude.limit,
+            remaining: claude.remaining,
+            resetDate: claude.resetDate,
+            allowed: claude.allowed,
+            note: 'Safety cap to prevent excessive token usage'
         }
     };
 }
@@ -111,6 +115,6 @@ export function getQuotaStatus() {
 // Reset quota counters (for testing)
 export function resetQuotas(): void {
     quotaUsage.clarifai = { count: 0, resetDate: getNextMonthReset() };
-    quotaUsage.gemini = [];
+    quotaUsage.claude = { count: 0, resetDate: getNextMonthReset() };
     console.log('✅ Quota counters reset');
 }

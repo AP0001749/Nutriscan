@@ -58,7 +58,7 @@ export function coerceAIAnalysis(obj: unknown): AIAnalysis {
   }
   const rec = obj as Record<string, unknown>;
 
-  // 1) Handle Gemini response shapes: candidates[0].content.parts[*].text
+  // 1) Handle legacy AI response shapes: candidates[0].content.parts[*].text
   try {
     const recObj = rec as Record<string, unknown>;
     const cands = Array.isArray(recObj.candidates) ? (recObj.candidates as Array<Record<string, unknown>>) : null;

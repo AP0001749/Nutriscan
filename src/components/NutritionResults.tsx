@@ -24,6 +24,15 @@ interface ScanResults {
   } | null;
   nutritionData: NutritionInfo[];
   warnings?: string[];
+  accuracyContext?: {
+    verdict: string;
+    isRealistic: boolean;
+    estimateType: string;
+    variabilityFactors: string[];
+    typicalRange: string;
+    improvementTips: string[];
+    disclaimer: string;
+  };
 }
 
 interface NutritionResultsProps {
@@ -207,7 +216,7 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
     if (!s) return '';
     const t = String(s).trim();
     if (!t) return '';
-    // Heuristic: if it looks like JSON or contains Gemini metadata, hide it behind a friendly message
+    // Heuristic: if it looks like JSON or contains Claude metadata, hide it behind a friendly message
     if (t.startsWith('{') || t.startsWith('[') || t.includes('"candidates"') || t.includes('finishReason')) {
       return 'AI returned a non-standard response. Showing nutrition facts below.';
     }
@@ -323,6 +332,52 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
                   {effectiveWarnings.map((w, i) => (
                     <div key={i} className="text-xs text-yellow-400/90 flex items-start"><AlertTriangle className="h-4 w-4 mr-2 mt-0.5"/>{w}</div>
                   ))}
+                </div>
+              )}
+              
+              {/* Accuracy Context */}
+              {results.accuracyContext && (
+                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Activity className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <h4 className="font-semibold text-sm text-blue-400">Accuracy Information</h4>
+                      <p className="text-xs text-blue-300/90">{results.accuracyContext.verdict}</p>
+                      <p className="text-xs text-muted-foreground italic">{results.accuracyContext.disclaimer}</p>
+                      
+                      <details className="mt-2">
+                        <summary className="text-xs font-medium text-blue-400 cursor-pointer hover:text-blue-300">
+                          Why estimates vary (click to expand)
+                        </summary>
+                        <div className="mt-2 space-y-2 pl-2 border-l-2 border-blue-500/30">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Estimate Type:</p>
+                            <p className="text-xs text-muted-foreground/80">{results.accuracyContext.estimateType}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Typical Range:</p>
+                            <p className="text-xs text-muted-foreground/80">{results.accuracyContext.typicalRange}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Variability Factors:</p>
+                            <ul className="text-xs text-muted-foreground/80 list-disc list-inside space-y-0.5">
+                              {results.accuracyContext.variabilityFactors.map((factor, idx) => (
+                                <li key={idx}>{factor}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">Improve Accuracy:</p>
+                            <ul className="text-xs text-muted-foreground/80 list-disc list-inside space-y-0.5">
+                              {results.accuracyContext.improvementTips.map((tip, idx) => (
+                                <li key={idx}>{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -22,20 +22,21 @@ export async function GET() {
   // Server-side endpoint to verify presence of key environment variables.
   // Returns boolean presence only - never exposes actual secret values.
   const present = {
-    GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
-    GEMINI_MODEL: process.env.GEMINI_MODEL ?? 'not-set',
+    ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
     NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? 'not-set',
     GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
     DATABASE_URL: !!process.env.DATABASE_URL,
     POSTGRES_URL: !!process.env.POSTGRES_URL,
-    CLARIFAI_PAT: !!process.env.CLARIFAI_PAT,
+    CLARIFAI_API_KEY: !!process.env.CLARIFAI_API_KEY,
     USDA_API_KEY: !!process.env.USDA_API_KEY,
+    NUTRITIONIX_API_KEY: !!process.env.NUTRITIONIX_API_KEY,
   };
 
   return NextResponse.json({ 
     present,
     environment: process.env.NODE_ENV,
+    aiProvider: 'Anthropic Claude',
     warning: 'Never expose actual secret values via API endpoints'
   });
 }
