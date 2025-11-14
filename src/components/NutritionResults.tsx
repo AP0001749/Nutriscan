@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Activity, Star, Utensils, HeartPulse, Flame, BrainCircuit, Lightbulb, CheckCircle, AlertTriangle, Scale, Gauge, ListChecks } from "lucide-react";
+import { Activity, Star, Utensils, HeartPulse, Flame, BrainCircuit, Lightbulb, CheckCircle, AlertTriangle, Scale, Gauge, ListChecks, Download, Share2 } from "lucide-react";
 import { NutritionInfo } from "@/lib/types";
 import { useToast } from "@/components/ui/toast";
+import { Confetti } from "@/components/Confetti";
+import { showToast } from "@/components/Toast";
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 // --- TYPE DEFINITIONS ---
 interface FoodRecognitionResult {
@@ -200,6 +204,8 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
   const [viewBasis, setViewBasis] = useState<'serving' | '100g'>('serving');
   const [servings, setServings] = useState<number>(1);
   const { toast, ToastContainer } = useToast();
+  const [showConfetti, setShowConfetti] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
   const topFood = nutritionData && nutritionData.length > 0 ? nutritionData[0] : undefined;
   const effectiveWarnings = useMemo(() => {
     const list = [...(warnings || [])];
@@ -226,6 +232,7 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
   const handleLogMeal = async () => {
     if (!selectedMealType) {
       toast({ title: "Selection Required", description: "Please select a meal type.", variant: "error" });
+      showToast('warning', 'Please select a meal type first');
       return;
     }
     setIsLogging(true);
@@ -243,18 +250,98 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to log meal.');
       
+      // Trigger confetti celebration!
+      setShowConfetti(true);
+      
       toast({
         title: "Meal Logged!",
         description: `${selectedMealType} saved to your dashboard.`,
         variant: "success",
       });
-      setTimeout(onClear, 1500);
+      showToast('success', `🎉 ${selectedMealType} logged successfully!`);
+      setTimeout(onClear, 2000);
 
     } catch (error) {
       const msg = error instanceof Error ? error.message : "An unknown error occurred.";
       toast({ title: "Logging Failed", description: msg, variant: "error" });
+      showToast('error', msg);
     } finally {
       setIsLogging(false);
+    }
+  };
+
+  const handleExportPNG = async () => {
+    if (!exportRef.current) return;
+    
+    try {
+      showToast('info', 'Generating image...');
+      const canvas = await html2canvas(exportRef.current, {
+        backgroundColor: '#0a1828',
+        scale: 2,
+      });
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = `nutriscan-${foodItems[0]?.name || 'meal'}-${Date.now()}.png`;
+          link.href = url;
+          link.click();
+          URL.revokeObjectURL(url);
+          showToast('success', '✅ Image exported successfully!');
+        }
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      showToast('error', 'Failed to export image');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!exportRef.current) return;
+    
+    try {
+      showToast('info', 'Generating PDF...');
+      const canvas = await html2canvas(exportRef.current, {
+        backgroundColor: '#0a1828',
+        scale: 2,
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`nutriscan-${foodItems[0]?.name || 'meal'}-${Date.now()}.pdf`);
+      showToast('success', '✅ PDF exported successfully!');
+    } catch (error) {
+      console.error('Export error:', error);
+      showToast('error', 'Failed to export PDF');
+    }
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `NutriScan: ${foodItems.map(f => f.name).join(', ')}`,
+          text: `Check out my nutrition analysis! Calories: ${Math.round(scale(topFood?.nf_calories) || 0)} kcal`,
+          url: window.location.href,
+        });
+        showToast('success', 'Shared successfully!');
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          showToast('error', 'Failed to share');
+        }
+      }
+    } else {
+      // Fallback: copy to clipboard
+      const text = `NutriScan Analysis: ${foodItems.map(f => f.name).join(', ')} - ${Math.round(scale(topFood?.nf_calories) || 0)} calories`;
+      navigator.clipboard.writeText(text);
+      showToast('success', 'Copied to clipboard!');
     }
   };
 
@@ -287,6 +374,26 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-500">
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
+      
+      {/* Export Actions */}
+      <div className="flex flex-wrap gap-3 justify-center">
+        <Button variant="outline" onClick={handleExportPNG} className="glass-card">
+          <Download className="w-4 h-4 mr-2" />
+          Export PNG
+        </Button>
+        <Button variant="outline" onClick={handleExportPDF} className="glass-card">
+          <Download className="w-4 h-4 mr-2" />
+          Export PDF
+        </Button>
+        <Button variant="outline" onClick={handleShare} className="glass-card">
+          <Share2 className="w-4 h-4 mr-2" />
+          Share
+        </Button>
+      </div>
+
+      {/* Main Content - Wrapped for export */}
+      <div ref={exportRef}>
       {/* Header / Summary Card */}
       <Card className="w-full max-w-4xl mx-auto overflow-hidden">
         <CardHeader className="p-6">
@@ -478,6 +585,7 @@ export default function NutritionResults({ results, onClear }: NutritionResultsP
           </div>
         </CardContent>
       </Card>
+      </div> {/* End of exportRef */}
 
       <div className="text-center">
         <Button onClick={onClear} variant="outline" size="lg">Scan Another Item</Button>

@@ -4,11 +4,13 @@ import { Camera, BarChart3, BotMessageSquare, Database, Sparkles, Zap, Shield, T
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { ParticleBackground } from "@/components/ParticleBackground";
 
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen relative overflow-hidden">
       {/* Animated Background Elements */}
+      <ParticleBackground />
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-background grid-pattern"></div>
         <div className="absolute top-0 left-0 w-full h-full radial-gradient"></div>

@@ -15,6 +15,14 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "NutriScan - Vibrant Food Intelligence",
   description: "Scan food with pure accuracy. Get instant ingredient breakdowns, nutrition facts, and vibrant health insights powered by AI.",
+  manifest: "/manifest.json",
+  themeColor: "#10b981",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "NutriScan",
+  },
 };
 
 export default function RootLayout({

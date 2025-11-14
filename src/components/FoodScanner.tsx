@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import NutritionResults from '@/components/NutritionResults'
 import ResultsSkeleton from '@/components/ResultsSkeleton';
 import { NutritionInfo } from '@/lib/types';
+import { showToast } from '@/components/Toast';
+import { ImageEditor } from '@/components/ImageEditor';
 
 // Define precise types for the component's state to eliminate 'any'
 interface FoodRecognitionResult {
@@ -42,9 +44,12 @@ export default function FoodScanner() {
   const [isScanning, setIsScanning] = useState(false)
   const [results, setResults] = useState<ScanResults | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const uploadInputRef = useRef<HTMLInputElement>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [showEditor, setShowEditor] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
 
   const handleImageUpload = async (file: File) => {
     if (!file) return
@@ -84,10 +89,13 @@ export default function FoodScanner() {
   // Ensure aiAnalysis is explicit null if missing
   if (!scanResults.aiAnalysis) scanResults.aiAnalysis = null;
   setResults(scanResults as ScanResults);
+  showToast('success', '✨ Food scanned successfully!');
 
     } catch (err) {
       console.error('Scanning error:', err)
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred during the scan.')
+      const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred during the scan.';
+      setError(errorMsg);
+      showToast('error', errorMsg);
     } finally {
       setIsScanning(false)
     }
@@ -96,12 +104,40 @@ export default function FoodScanner() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      handleImageUpload(file)
+      // Show editor first
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setSelectedImage(e.target?.result as string);
+        setPendingFile(file);
+        setShowEditor(true);
+      };
+      reader.readAsDataURL(file);
     }
   }
 
-  const handleActionClick = () => {
-    fileInputRef.current?.click()
+  const handleEditorConfirm = (editedFile: File) => {
+    setShowEditor(false);
+    handleImageUpload(editedFile);
+  };
+
+  const handleEditorCancel = () => {
+    setShowEditor(false);
+    setSelectedImage(null);
+    setPendingFile(null);
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = '';
+    }
+  };
+
+  const handleCameraClick = () => {
+    cameraInputRef.current?.click()
+  }
+
+  const handleUploadClick = () => {
+    uploadInputRef.current?.click()
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -132,14 +168,25 @@ export default function FoodScanner() {
     setResults(null)
     setError(null)
     setSelectedImage(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = ''
+    }
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = ''
     }
   }
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8">
-      {!results && (
+      {showEditor && selectedImage && (
+        <ImageEditor
+          imageSrc={selectedImage}
+          onConfirm={handleEditorConfirm}
+          onCancel={handleEditorCancel}
+        />
+      )}
+      
+      {!results && !showEditor && (
         <Card className="glass-card border-0 overflow-hidden">
           <CardHeader className="items-center text-center space-y-4 p-8">
             <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/20 shimmer pulse-glow">
@@ -156,7 +203,7 @@ export default function FoodScanner() {
             {/* Action Buttons - Premium Style */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
-                onClick={handleActionClick} 
+                onClick={handleCameraClick} 
                 className="w-full sm:flex-1 btn-premium text-base py-6"
                 size="lg"
                 disabled={isScanning}
@@ -165,7 +212,7 @@ export default function FoodScanner() {
                 Take Photo
               </Button>
               <Button 
-                onClick={handleActionClick} 
+                onClick={handleUploadClick} 
                 variant="outline" 
                 size="lg"
                 className="w-full sm:flex-1 glass-card border-emerald-500/30 hover:border-emerald-500/50 text-base py-6"
@@ -203,13 +250,25 @@ export default function FoodScanner() {
               </div>
             </div>
 
+            {/* Camera Input - Opens camera on mobile */}
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               onChange={handleFileSelect}
               className="hidden"
+              aria-label="Capture photo with camera"
+            />
+
+            {/* Upload Input - Opens file picker */}
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+              aria-label="Upload image from device"
             />
 
             {/* Image Preview - Enhanced */}
