@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { History, Calendar, Filter, TrendingUp, Flame, Utensils, BarChart3, Clock, RefreshCw } from 'lucide-react';
+import { History, Calendar, Filter, TrendingUp, Flame, Utensils, BarChart3, Clock, RefreshCw, Download } from 'lucide-react';
 import { showToast } from '@/components/Toast';
+import { MacroChart } from '@/components/MacroChart';
 
 interface Meal {
   id: number;
@@ -43,7 +44,7 @@ export default function MealHistoryPage() {
   const [mealTypeFilter, setMealTypeFilter] = useState<string>('');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -63,6 +64,54 @@ export default function MealHistoryPage() {
     } finally {
       setLoading(false);
     }
+  }, [mealTypeFilter, dateRange]);
+
+  const exportToCSV = () => {
+    if (!history || history.meals.length === 0) {
+      showToast('error', 'No meals to export');
+      return;
+    }
+
+    const headers = ['Date', 'Meal Type', 'Meal Name', 'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)'];
+    const rows = history.meals.map(meal => {
+      const nutritionData = typeof meal.nutrition_data === 'string' 
+        ? JSON.parse(meal.nutrition_data) 
+        : meal.nutrition_data;
+      
+      const totalNutrition = nutritionData.foods.reduce((acc: {calories: number; protein: number; carbs: number; fat: number}, food: {calories?: number; protein?: number; carbs?: number; fat?: number}) => ({
+        calories: acc.calories + (food.calories || 0),
+        protein: acc.protein + (food.protein || 0),
+        carbs: acc.carbs + (food.carbs || 0),
+        fat: acc.fat + (food.fat || 0)
+      }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+      return [
+        new Date(meal.timestamp).toLocaleDateString(),
+        meal.meal_type,
+        meal.meal_name,
+        totalNutrition.calories.toFixed(0),
+        totalNutrition.protein.toFixed(1),
+        totalNutrition.carbs.toFixed(1),
+        totalNutrition.fat.toFixed(1)
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `nutriscan-meals-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('success', '✅ Meal history exported successfully!');
   };
 
   useEffect(() => {
@@ -73,7 +122,7 @@ export default function MealHistoryPage() {
     if (status === 'authenticated') {
       fetchHistory();
     }
-  }, [status, router, mealTypeFilter, dateRange]);
+  }, [status, router, mealTypeFilter, dateRange, fetchHistory]);
 
   if (status === 'loading' || loading) {
     return (
@@ -104,15 +153,26 @@ export default function MealHistoryPage() {
     <div className="container mx-auto px-4 py-12 min-h-screen">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/20">
-            <History className="w-6 h-6 text-emerald-400" />
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/20">
+                <History className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h1 className="text-4xl font-bold">
+                <span className="text-gradient">Meal History</span>
+              </h1>
+            </div>
+            <p className="text-muted-foreground text-lg">Track your nutrition journey over time</p>
           </div>
-          <h1 className="text-4xl font-bold">
-            <span className="text-gradient">Meal History</span>
-          </h1>
+          <Button
+            onClick={exportToCSV}
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
-        <p className="text-muted-foreground text-lg">Track your nutrition journey over time</p>
       </div>
 
       {/* Filters */}
@@ -168,6 +228,7 @@ export default function MealHistoryPage() {
 
       {/* Summary Statistics */}
       {history && (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card className="glass-card border-0">
             <CardContent className="pt-6">
@@ -225,6 +286,27 @@ export default function MealHistoryPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Macro Ratio Visualization */}
+        <Card className="glass-card border-0 mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Macro Distribution
+            </CardTitle>
+            <CardDescription>
+              Breakdown of your protein, carbs, and fat intake
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MacroChart
+              protein={history.aggregates.totalProtein}
+              carbs={history.aggregates.totalCarbs}
+              fat={history.aggregates.totalFat}
+            />
+          </CardContent>
+        </Card>
+        </>
       )}
 
       {/* Meal List */}

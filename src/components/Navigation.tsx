@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, Home, Camera, Info, BarChart3, ScanLine, LogOut, History } from 'lucide-react'
+import { BookOpen, Home, Camera, Info, BarChart3, ScanLine, LogOut, History, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ const navigation = [
   { name: 'Scan', href: '/scan', icon: Camera },
   { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
   { name: 'History', href: '/history', icon: History },
+  { name: 'Goals', href: '/settings', icon: Target },
   { name: 'Blog', href: '/blog', icon: BookOpen },
   { name: 'About', href: '/about', icon: Info },
 ]

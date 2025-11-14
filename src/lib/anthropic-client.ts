@@ -13,7 +13,7 @@ export type ClaudeOptions = {
   maxTokens?: number;
   temperature?: number;
   retries?: number;
-  model?: string; // claude-3-5-haiku-20241022 (fast), claude-3-5-sonnet-20241022 (balanced, best for vision)
+  model?: string; // claude-sonnet-4-20250514 (most capable, best for vision & reasoning), claude-3-5-haiku-20241022 (fast)
 };
 
 // --- UTILITY FUNCTIONS ---
@@ -59,9 +59,9 @@ export async function callClaude(
   
   // Model selection priority:
   // 1. Operator-specified model (opts.model)
-  // 2. For vision: Use Claude 3.5 Sonnet (best vision capabilities)
+  // 2. For vision: Use Claude Sonnet 4 (most capable, future-proof)
   // 3. For text: Use Claude 3.5 Haiku (fastest, cheapest)
-  const model = opts.model || (image ? "claude-3-5-sonnet-20241022" : "claude-3-5-haiku-20241022");
+  const model = opts.model || (image ? "claude-sonnet-4-20250514" : "claude-3-5-haiku-20241022");
 
   console.log(`⚜️ Anthropic Claude: Engaging model='${model}'${image ? ' (vision mode)' : ' (text mode)'} [${quotaCheck.remaining} calls remaining]`);
 

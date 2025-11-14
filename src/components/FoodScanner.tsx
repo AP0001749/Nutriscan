@@ -49,7 +49,6 @@ export default function FoodScanner() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
-  const [pendingFile, setPendingFile] = useState<File | null>(null)
 
   const handleImageUpload = async (file: File) => {
     if (!file) return
@@ -108,7 +107,6 @@ export default function FoodScanner() {
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target?.result as string);
-        setPendingFile(file);
         setShowEditor(true);
       };
       reader.readAsDataURL(file);
@@ -123,7 +121,6 @@ export default function FoodScanner() {
   const handleEditorCancel = () => {
     setShowEditor(false);
     setSelectedImage(null);
-    setPendingFile(null);
     if (cameraInputRef.current) {
       cameraInputRef.current.value = '';
     }
