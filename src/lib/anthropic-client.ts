@@ -57,13 +57,13 @@ export async function callClaude(
   const apiKey = getApiKey();
   const retries = opts.retries ?? 3;
   
-  // Model selection priority (Claude Haiku - Most Cost-Effective + Accurate):
+  // Model selection priority:
   // 1. Operator-specified model (opts.model)
-  // 2. Default: claude-3-5-haiku-20241022 (Claude 3.5 Haiku - fast, cheap, accurate for all tasks)
-  // This model handles both vision AND text with extreme accuracy at lowest cost
-  const model = opts.model || "claude-3-5-haiku-20241022";
+  // 2. For vision: Use Claude 3 Opus (Haiku doesn't support vision)
+  // 3. For text: Use Claude 3.5 Haiku (fastest, cheapest)
+  const model = opts.model || (image ? "claude-3-opus-20240229" : "claude-3-5-haiku-20241022");
 
-  console.log(`⚜️ Anthropic Claude Haiku: Engaging model='${model}'${image ? ' (vision mode)' : ''} [Cost-Optimized, ${quotaCheck.remaining} calls remaining]`);
+  console.log(`⚜️ Anthropic Claude: Engaging model='${model}'${image ? ' (vision mode)' : ' (text mode)'} [${quotaCheck.remaining} calls remaining]`);
 
   // Build message content array (image + text)
   const contentParts: Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> = [];

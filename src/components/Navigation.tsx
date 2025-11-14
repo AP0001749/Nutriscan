@@ -6,6 +6,7 @@ import { BookOpen, Home, Camera, Info, BarChart3, ScanLine, LogOut } from 'lucid
 import { cn } from '@/lib/utils'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navigation = [
   { name: 'Home', href: '/', icon: Home },
@@ -56,6 +57,9 @@ export default function Navigation() {
 
           {/* Auth Section - Premium Style */}
           <div className="pl-4 ml-4 border-l border-emerald-500/20 flex items-center space-x-3">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+            
             {!isSignedIn ? (
               <Button
                 onClick={() => signIn()}

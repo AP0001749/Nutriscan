@@ -5,6 +5,7 @@ import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { SessionProvider } from "@/components/SessionProvider";
+import { ToastContainer } from "@/components/Toast";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,12 +25,18 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${inter.variable} antialiased`}>
+        {/* Skip to main content link for accessibility */}
+        <a href="#main-content" className="skip-to-main">
+          Skip to main content
+        </a>
+        
         <SessionProvider>
           <Navigation />
-          <main className="min-h-screen container py-8">
+          <main id="main-content" className="min-h-screen container py-8">
             {children}
           </main>
           <Footer />
+          <ToastContainer />
         </SessionProvider>
       </body>
     </html>
