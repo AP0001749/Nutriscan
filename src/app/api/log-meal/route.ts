@@ -7,10 +7,10 @@ import { authOptions } from '@/lib/nextauth';
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const userId = session.user.id;
+    const userId = session.user.email; // Use email as userId for consistency with meal-history
 
     // *** CRITICAL FIX: Destructure 'mealName' from the incoming request body ***
     const { mealType, mealName, foods } = await request.json();
