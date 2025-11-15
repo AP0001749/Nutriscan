@@ -16,22 +16,22 @@ export default function OfflinePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="max-w-md w-full mx-4 text-center space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4">
+      <div className="max-w-md w-full text-center space-y-6 md:space-y-8">
         {/* Offline Icon */}
-        <div className="relative mx-auto w-24 h-24">
+        <div className="relative mx-auto w-20 h-20 md:w-24 md:h-24">
           <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-full blur-2xl opacity-30"></div>
-          <div className="relative bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-full w-24 h-24 flex items-center justify-center">
-            <Wifi className="w-12 h-12 text-red-400" />
+          <div className="relative bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-full w-20 h-20 md:w-24 md:h-24 flex items-center justify-center">
+            <Wifi className="w-10 h-10 md:w-12 md:h-12 text-red-400" />
           </div>
         </div>
 
         {/* Message */}
-        <div className="space-y-4">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-red-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+        <div className="space-y-3 md:space-y-4">
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-red-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
             You&apos;re Offline
           </h1>
-          <p className="text-slate-400 text-lg">
+          <p className="text-slate-400 text-base md:text-lg">
             No internet connection detected. Please check your network and try again.
           </p>
         </div>

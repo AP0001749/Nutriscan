@@ -30,14 +30,14 @@ export default function Home() {
               </Badge>
 
               {/* Hero Title - Enhanced */}
-              <h1 className="text-6xl md:text-7xl lg:text-8xl font-black tracking-tight animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <span className="text-gradient-premium">Sovereign Food</span>
                 <br />
                 <span className="text-foreground">Intelligence</span>
               </h1>
 
               {/* Subtitle - Refined */}
-              <p className="mx-auto max-w-[800px] text-muted-foreground text-lg md:text-xl leading-relaxed animate-in fade-in slide-in-from-bottom-6 duration-900">
+              <p className="mx-auto max-w-[800px] text-muted-foreground text-base md:text-lg lg:text-xl leading-relaxed animate-in fade-in slide-in-from-bottom-6 duration-900 px-4">
                 Experience <span className="text-emerald-400 font-semibold">unparalleled accuracy</span> with our revolutionary AI platform. 
                 Get instant nutrition analysis, complete ingredient breakdowns, and advanced health insights—all in seconds.
               </p>

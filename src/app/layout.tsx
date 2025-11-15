@@ -40,7 +40,7 @@ export default function RootLayout({
         
         <SessionProvider>
           <Navigation />
-          <main id="main-content" className="min-h-screen container py-8">
+          <main id="main-content" className="min-h-screen container py-4 md:py-8">
             {children}
           </main>
           <Footer />

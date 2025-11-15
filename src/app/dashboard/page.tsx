@@ -124,20 +124,20 @@ export default function Dashboard() {
   }, {} as Record<string, MealLog[]>);
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-foreground mb-4 flex items-center justify-center">
-            <Activity className="mr-3 h-8 w-8 text-primary" /> Daily Nutrition Dashboard
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-3 md:mb-4 flex items-center justify-center">
+            <Activity className="mr-2 md:mr-3 h-6 w-6 md:h-8 md:w-8 text-primary" /> Daily Nutrition Dashboard
           </h1>
-          <p className="text-xl text-muted-foreground mb-6">Track your meals and monitor your nutritional intake</p>
-          <div className="flex items-center justify-center space-x-4 mb-8">
-            <Calendar className="h-5 w-5 text-primary" />
+          <p className="text-base md:text-lg lg:text-xl text-muted-foreground mb-4 md:mb-6">Track your meals and monitor your nutritional intake</p>
+          <div className="flex items-center justify-center space-x-3 md:space-x-4 mb-6 md:mb-8">
+            <Calendar className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 border-2 border-border rounded-lg bg-background focus:border-primary focus:outline-none"
+              className="px-3 md:px-4 py-2 border-2 border-border rounded-lg bg-background focus:border-primary focus:outline-none text-sm md:text-base"
             />
             <Button onClick={handleClearMeals} disabled={isClearing || meals.length === 0} variant="destructive" size="sm">
               <Trash2 className="mr-2 h-4 w-4" />

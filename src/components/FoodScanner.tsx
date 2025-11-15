@@ -198,24 +198,24 @@ export default function FoodScanner() {
           </CardHeader>
           <CardContent className="space-y-8 p-8">
             {/* Action Buttons - Premium Style */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
               <Button 
                 onClick={handleCameraClick} 
-                className="w-full sm:flex-1 btn-premium text-base py-6"
+                className="w-full sm:flex-1 btn-premium text-sm md:text-base py-5 md:py-6"
                 size="lg"
                 disabled={isScanning}
               >
-                <Camera className="mr-2 h-5 w-5" />
+                <Camera className="mr-2 h-4 w-4 md:h-5 md:w-5" />
                 Take Photo
               </Button>
               <Button 
                 onClick={handleUploadClick} 
                 variant="outline" 
                 size="lg"
-                className="w-full sm:flex-1 glass-card border-emerald-500/30 hover:border-emerald-500/50 text-base py-6"
+                className="w-full sm:flex-1 glass-card border-emerald-500/30 hover:border-emerald-500/50 text-sm md:text-base py-5 md:py-6"
                 disabled={isScanning}
               >
-                <Upload className="mr-2 h-5 w-5" />
+                <Upload className="mr-2 h-4 w-4 md:h-5 md:w-5" />
                 Upload Image
               </Button>
             </div>
@@ -226,22 +226,22 @@ export default function FoodScanner() {
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`w-full p-12 rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center gap-4 cursor-pointer ${
+              className={`w-full p-8 md:p-12 rounded-xl md:rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center gap-3 md:gap-4 cursor-pointer ${
                 isDragging 
                   ? 'border-emerald-500 bg-emerald-500/10 scale-[1.02] shadow-lg shadow-emerald-500/20' 
                   : 'glass-card border-emerald-500/20 hover:border-emerald-500/40 hover:bg-white/5'
               }`}
             >
-              <div className={`p-4 rounded-full transition-colors ${
+              <div className={`p-3 md:p-4 rounded-full transition-colors ${
                 isDragging ? 'bg-emerald-500/20' : 'bg-white/5'
               }`}>
-                <Upload className={`h-10 w-10 ${isDragging ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+                <Upload className={`h-8 w-8 md:h-10 md:w-10 ${isDragging ? 'text-emerald-400' : 'text-muted-foreground'}`} />
               </div>
               <div className="text-center">
-                <p className="text-lg font-semibold text-foreground mb-1">
+                <p className="text-base md:text-lg font-semibold text-foreground mb-1">
                   {isDragging ? 'Drop your image here' : 'Drag & drop your meal photo'}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   Supports JPG, PNG, WEBP up to 10MB
                 </p>
               </div>

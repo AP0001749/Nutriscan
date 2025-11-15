@@ -51,18 +51,18 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 min-h-screen">
+    <div className="container mx-auto px-4 py-6 md:py-12 min-h-screen">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6 md:mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20">
-            <Target className="w-6 h-6 text-blue-400" />
+          <div className="p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20">
+            <Target className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
           </div>
-          <h1 className="text-4xl font-bold">
+          <h1 className="text-2xl md:text-4xl font-bold">
             <span className="text-gradient">Daily Goals</span>
           </h1>
         </div>
-        <p className="text-muted-foreground text-lg">Set your nutrition targets</p>
+        <p className="text-muted-foreground text-sm md:text-lg">Set your nutrition targets</p>
       </div>
 
       {/* Goals Card */}

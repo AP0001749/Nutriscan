@@ -150,24 +150,24 @@ export default function MealHistoryPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 min-h-screen">
+    <div className="container mx-auto px-4 py-6 md:py-12 min-h-screen">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/20">
-                <History className="w-6 h-6 text-emerald-400" />
+              <div className="p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/20">
+                <History className="w-5 h-5 md:w-6 md:h-6 text-emerald-400" />
               </div>
-              <h1 className="text-4xl font-bold">
+              <h1 className="text-2xl md:text-4xl font-bold">
                 <span className="text-gradient">Meal History</span>
               </h1>
             </div>
-            <p className="text-muted-foreground text-lg">Track your nutrition journey over time</p>
+            <p className="text-muted-foreground text-sm md:text-lg">Track your nutrition journey over time</p>
           </div>
           <Button
             onClick={exportToCSV}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25 w-full sm:w-auto"
           >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
