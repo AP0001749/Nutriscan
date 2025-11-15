@@ -12,11 +12,12 @@ import { MacroChart } from '@/components/MacroChart';
 
 interface Meal {
   id: number;
-  user_email: string;
+  user_id: string;
   meal_type: string;
   meal_name: string;
-  timestamp: string;
-  nutrition_data: string;
+  timestamp?: string;
+  created_at?: string;
+  foods: string | { nf_calories?: number; nf_protein?: number; nf_total_carbohydrate?: number; nf_total_fat?: number }[];
 }
 
 interface MealHistoryResponse {
@@ -74,19 +75,17 @@ export default function MealHistoryPage() {
 
     const headers = ['Date', 'Meal Type', 'Meal Name', 'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)'];
     const rows = history.meals.map(meal => {
-      const nutritionData = typeof meal.nutrition_data === 'string' 
-        ? JSON.parse(meal.nutrition_data) 
-        : meal.nutrition_data;
+      const foods = typeof meal.foods === 'string' ? JSON.parse(meal.foods) : meal.foods;
       
-      const totalNutrition = nutritionData.foods.reduce((acc: {calories: number; protein: number; carbs: number; fat: number}, food: {calories?: number; protein?: number; carbs?: number; fat?: number}) => ({
-        calories: acc.calories + (food.calories || 0),
-        protein: acc.protein + (food.protein || 0),
-        carbs: acc.carbs + (food.carbs || 0),
-        fat: acc.fat + (food.fat || 0)
+      const totalNutrition = foods.reduce((acc: {calories: number; protein: number; carbs: number; fat: number}, food: {nf_calories?: number; nf_protein?: number; nf_total_carbohydrate?: number; nf_total_fat?: number}) => ({
+        calories: acc.calories + (food.nf_calories || 0),
+        protein: acc.protein + (food.nf_protein || 0),
+        carbs: acc.carbs + (food.nf_total_carbohydrate || 0),
+        fat: acc.fat + (food.nf_total_fat || 0)
       }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
       return [
-        new Date(meal.timestamp).toLocaleDateString(),
+        new Date(meal.created_at || meal.timestamp || '').toLocaleDateString(),
         meal.meal_type,
         meal.meal_name,
         totalNutrition.calories.toFixed(0),
@@ -333,7 +332,14 @@ export default function MealHistoryPage() {
           ) : (
             <>
               {history?.meals.map((meal) => {
-                const nutritionData = JSON.parse(meal.nutrition_data)[0];
+                const foods = typeof meal.foods === 'string' ? JSON.parse(meal.foods) : meal.foods;
+                const totalNutrition = foods.reduce((acc: {calories: number; protein: number; carbs: number; fat: number}, food: {nf_calories?: number; nf_protein?: number; nf_total_carbohydrate?: number; nf_total_fat?: number}) => ({
+                  calories: acc.calories + (food.nf_calories || 0),
+                  protein: acc.protein + (food.nf_protein || 0),
+                  carbs: acc.carbs + (food.nf_total_carbohydrate || 0),
+                  fat: acc.fat + (food.nf_total_fat || 0)
+                }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
                 return (
                   <Card key={meal.id} className="glass-card border-0 hover:border-emerald-500/30 transition-all">
                     <CardContent className="p-4">
@@ -344,7 +350,7 @@ export default function MealHistoryPage() {
                               {meal.meal_type}
                             </Badge>
                             <span className="text-sm text-muted-foreground">
-                              {new Date(meal.timestamp).toLocaleDateString('en-US', {
+                              {new Date(meal.created_at || meal.timestamp || '').toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',
@@ -357,11 +363,11 @@ export default function MealHistoryPage() {
                           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Flame className="w-4 h-4 text-red-400" />
-                              {Math.round(nutritionData.nf_calories || 0)} cal
+                              {Math.round(totalNutrition.calories)} cal
                             </span>
-                            <span>P: {Math.round(nutritionData.nf_protein || 0)}g</span>
-                            <span>C: {Math.round(nutritionData.nf_total_carbohydrate || 0)}g</span>
-                            <span>F: {Math.round(nutritionData.nf_total_fat || 0)}g</span>
+                            <span>P: {Math.round(totalNutrition.protein)}g</span>
+                            <span>C: {Math.round(totalNutrition.carbs)}g</span>
+                            <span>F: {Math.round(totalNutrition.fat)}g</span>
                           </div>
                         </div>
                       </div>

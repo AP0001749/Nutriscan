@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     const countResult = await sql.query(countQuery, countParams);
     const total = countResult.rows[0]?.total || 0;
 
-    // Get nutrition aggregates - simplified version
+    // Get nutrition aggregates - calculate from actual foods data
     const aggregates = {
       totalCalories: 0,
       totalProtein: 0,
@@ -82,15 +82,17 @@ export async function GET(request: NextRequest) {
       mealCount: meals.length,
     };
 
-    // Calculate aggregates from meals
-    meals.forEach((meal: { foods: string }) => {
+    // Calculate aggregates from meals foods array
+    meals.forEach((meal: { foods: string | { nf_calories?: number; nf_protein?: number; nf_total_carbohydrate?: number; nf_total_fat?: number }[] }) => {
       try {
         const foods = typeof meal.foods === 'string' ? JSON.parse(meal.foods) : meal.foods;
-        if (Array.isArray(foods) && foods[0]) {
-          aggregates.totalCalories += foods[0].nf_calories || 0;
-          aggregates.totalProtein += foods[0].nf_protein || 0;
-          aggregates.totalCarbs += foods[0].nf_total_carbohydrate || 0;
-          aggregates.totalFat += foods[0].nf_total_fat || 0;
+        if (Array.isArray(foods)) {
+          foods.forEach((food: { nf_calories?: number; nf_protein?: number; nf_total_carbohydrate?: number; nf_total_fat?: number }) => {
+            aggregates.totalCalories += food.nf_calories || 0;
+            aggregates.totalProtein += food.nf_protein || 0;
+            aggregates.totalCarbs += food.nf_total_carbohydrate || 0;
+            aggregates.totalFat += food.nf_total_fat || 0;
+          });
         }
       } catch (e) {
         console.error('Error parsing meal foods:', e);
