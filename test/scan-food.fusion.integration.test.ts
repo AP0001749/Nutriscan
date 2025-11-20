@@ -19,8 +19,6 @@ describe('scan-food fusion engine integration (mocked externals)', () => {
     process.env.USDA_API_KEY = 'usda-test';
     process.env.GEMINI_API_KEY = 'gemini-test';
     process.env.GEMINI_MODEL = 'gemini-flash';
-    process.env.NUTRITIONIX_APP_ID = 'nutri-app';
-    process.env.NUTRITIONIX_API_KEY = 'nutri-key';
   });
   afterEach(() => {
     vi.restoreAllMocks();

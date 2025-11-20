@@ -30,7 +30,6 @@ export async function GET() {
     POSTGRES_URL: !!process.env.POSTGRES_URL,
     CLARIFAI_API_KEY: !!process.env.CLARIFAI_API_KEY,
     USDA_API_KEY: !!process.env.USDA_API_KEY,
-    NUTRITIONIX_API_KEY: !!process.env.NUTRITIONIX_API_KEY,
   };
 
   return NextResponse.json({ 
